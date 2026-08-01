@@ -1,8 +1,6 @@
 # Enda - Plateforme de Centralisation des Demandes
 
-Ce projet est une solution complète d'entreprise pour la centralisation, la gestion et le traitement intelligent des demandes clients d'**Enda Tamweel**. 
-Il repose sur une architecture microservices distribuée, sécurisée par **Keycloak**, intégrant un frontend dynamique sous **React 19**, un backend métier robuste sous **Java 17 / Spring Boot 3**, un service d'intelligence et de tâches d'arrière-plan sous **FastAPI**, ainsi qu'une base de données **MySQL 8.4**.
-
+Ce projet constitue une solution complète d’entreprise dédiée à la centralisation, la gestion et le traitement intelligent des demandes clients d’Enda Tamweel. Il repose sur une architecture évolutive basée sur un backend métier développé avec Java 17 / Spring Boot 3, un frontend moderne sous React 19, un service d’intelligence et de traitement en arrière-plan développé avec FastAPI, une sécurisation des accès via Keycloak, ainsi qu’une base de données MySQL 8.4.
 
 
 ## Stack Technique & Versions
