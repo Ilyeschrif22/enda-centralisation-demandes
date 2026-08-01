@@ -1,4 +1,4 @@
-# Enda - Plateforme de Centralisation des Demandes
+# Enda Central :  Plateforme de Centralisation des Demandes
 
 Ce projet constitue une solution complète d’entreprise dédiée à la centralisation, la gestion et le traitement intelligent des demandes clients d’Enda Tamweel. Il repose sur une architecture évolutive basée sur un backend métier développé avec Java 17 / Spring Boot 3, un frontend moderne sous React 19, un service d’intelligence et de traitement en arrière-plan développé avec FastAPI, une sécurisation des accès via Keycloak, ainsi qu’une base de données MySQL 8.4.
 
@@ -217,13 +217,13 @@ docker compose up --build
 Une fois la stack démarrée, les services sont accessibles sur les ports suivants :
 
 | Service | Technologie | URL / Endpoint |
-| : | : | : |
+| :--- | :--- | :--- |
 | **Frontend UI** | React 19 / Vite | http://localhost:5173 |
 | **Spring Boot API** | Java 17 / Spring Boot 3 | http://localhost:8089 |
 | **Swagger UI (Spring)** | Springdoc | http://localhost:8089/swagger-ui.html |
 | **FastAPI Docs** | Python / FastAPI | http://localhost:8000/docs |
 | **Keycloak IAM Admin** | Keycloak 26 | http://localhost:8180 (Admin: admin/admin) |
-| **Base MySQL** | MySQL 8.4 | localhost:3306 (Root password: enda_dev_password) |
+| **Base MySQL** | MySQL 8.4 | localhost:3306 |
 
 ### 5. Arrêt de la Stack
 ```bash
