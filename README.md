@@ -3,7 +3,7 @@
 Ce projet est une solution complète d'entreprise pour la centralisation, la gestion et le traitement intelligent des demandes clients d'**Enda Tamweel**. 
 Il repose sur une architecture microservices distribuée, sécurisée par **Keycloak**, intégrant un frontend dynamique sous **React 19**, un backend métier robuste sous **Java 17 / Spring Boot 3**, un service d'intelligence et de tâches d'arrière-plan sous **FastAPI**, ainsi qu'une base de données **MySQL 8.4**.
 
----
+
 
 ## Stack Technique & Versions
 
@@ -41,7 +41,7 @@ Il repose sur une architecture microservices distribuée, sécurisée par **Keyc
 - **SGBD** : **MySQL 8.4** (Bases de données `enda_clients` et `enda_db`)
 - **Conteneurisation** : Docker, Docker Compose
 
----
+
 
 ## Architecture Globale du Système
 
@@ -83,7 +83,7 @@ La plateforme adopte une **architecture en microservices découplés**, orchestr
 4. **FastAPI Backend** : Module spécialisé dans la synchronisation des données (Google Sheets), le traitement automatique par IA (Groq) et la planification des jobs (APScheduler).
 5. **Base de données MySQL 8.4** : Stockage persistant avec scripts de démarrage auto-initialisés (`agences enda.sql`, `names_db.sql`).
 
----
+
 
 ## Structures des Projets & Approches Architecturales
 
@@ -112,7 +112,7 @@ enda-frontend/
 - **Découpage modulaire** : Séparation stricte entre l'état d'authentification (`context`), les services API (`services`) et les éléments de présentation (`components`).
 - **Gestion de session** : Utilisation du client officiel `keycloak-js` pour sécuriser les routes et transmettre le token `Bearer` dans les en-têtes HTTP.
 
----
+
 
 ### 2. `enda-springboot-backend` — Approach: Layered Architecture (Controller-Service-Repository DTO Pattern)
 
@@ -150,7 +150,7 @@ enda-springboot-backend/
   - `DTO` : Isolation des modèles de base de données vis-à-vis de la couche d'exposition API.
 - **Intégration Keycloak Admin** : Interaction directe avec le serveur Keycloak pour la création et la synchronisation des comptes utilisateurs via `KeycloakAdminClient`.
 
----
+
 
 ### 3. `enda-fast-api-backend` — Approach: Feature-Driven & Asynchronous Service Architecture
 
@@ -176,7 +176,7 @@ enda-fast-api-backend/
 - **Background Tasks & Scheduler** : `APScheduler` gère l'exécution périodique des tâches sans bloquer l'Event Loop de FastAPI.
 - **Connexion Spring Boot** : FastAPI communique également avec la brique Spring Boot pour remonter des analyses ou synchroniser des données.
 
----
+
 
 ### 4. `enda-tamweel-keycloak-starter` — Approach: Custom Distribution & IAM Starter
 
@@ -191,7 +191,7 @@ enda-tamweel-keycloak-starter/
 └── Dockerfile           # Construction de l'image Keycloak d'entreprise
 ```
 
----
+
 
 ## Démarrage Rapide (Docker Compose)
 
@@ -219,7 +219,7 @@ docker compose up --build
 Une fois la stack démarrée, les services sont accessibles sur les ports suivants :
 
 | Service | Technologie | URL / Endpoint |
-| :--- | :--- | :--- |
+| : | : | : |
 | **Frontend UI** | React 19 / Vite | http://localhost:5173 |
 | **Spring Boot API** | Java 17 / Spring Boot 3 | http://localhost:8089 |
 | **Swagger UI (Spring)** | Springdoc | http://localhost:8089/swagger-ui.html |
@@ -236,7 +236,7 @@ docker compose down
 docker compose down -v
 ```
 
----
+
 
 ## Licence
 Projet interne - **Enda Tamweel** (c) 2026. Tous droits réservés.
