@@ -12,7 +12,7 @@ Il repose sur une architecture microservices distribuée, sécurisée par **Keyc
 - **Outil de Build & Serveur Dev** : **Vite** (v8.1.1)
 - **Routage** : `react-router-dom` (v7.18.1)
 - **Authentification Client** : `keycloak-js` (v26.2.4)
-- **UI & Composants** : Radix UI (`@radix-ui/react-alert-dialog`), Tailwind CSS / Custom CSS, `react-hot-toast` (v2.6.0)
+- **UI & Composants** : Vanilla CSS / Custom CSS
 - **Data Visualization** : `recharts` (v3.10.1)
 - **Linter & Outils** : `oxlint` (v1.71.0)
 

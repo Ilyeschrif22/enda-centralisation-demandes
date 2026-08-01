@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import toast, { Toaster } from "react-hot-toast";
 import AddUtilisateurModal from "../components/add-utilisateur-modal/add-utilisateur-modal";
 import "../components/data-table/data-table.css";
 import "./users-page.css";
@@ -21,7 +20,6 @@ const UsersPage = () => {
             .then(setUsers)
             .catch((err) => {
                 console.error(err);
-                toast.error("Impossible de charger les utilisateurs.");
             })
             .finally(() => setLoading(false));
     };
@@ -46,10 +44,8 @@ const UsersPage = () => {
             const res = await fetch(`${API_BASE}/admin/users/${user.id}`, { method: "DELETE" });
             if (!res.ok) throw new Error();
             setUsers((prev) => prev.filter((u) => u.id !== user.id));
-            toast.success("Utilisateur supprimé.");
         } catch (err) {
             console.error(err);
-            toast.error("Echec de la suppression.");
         }
     };
 
@@ -66,7 +62,6 @@ const UsersPage = () => {
             );
         } catch (err) {
             console.error(err);
-            toast.error("Echec de la mise à jour.");
         }
     };
 
@@ -82,8 +77,6 @@ const UsersPage = () => {
 
     return (
         <div className="users-page">
-            <Toaster position="top-right" />
-
             <div className="users-page-header">
                 <h2>Gestion des utilisateurs</h2>
                 <button type="button" className="btn btn-primary" onClick={openCreate}>

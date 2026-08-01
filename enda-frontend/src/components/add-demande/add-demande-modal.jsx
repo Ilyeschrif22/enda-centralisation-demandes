@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useRef } from "react";
-import toast, { Toaster } from "react-hot-toast";
 import secteurActiviteMap from '../../../secteur-activite.json';
 import { useAuth } from "../../context/AuthContext";
 
@@ -226,25 +225,14 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
             return;
         }
         setCinStatus("checking");
-        const toastId = toast.custom(
-            () => (
-                <div className="cin-toast cin-toast-checking">
-                    <span className="cin-toast-spinner" />
-                    Vérification du CIN...
-                </div>
-            ),
-            { duration: Infinity }
-        );
         try {
             const res = await fetch(`${API_BASE}/utilisateurs/check-cin/${cin}`);
             if (!res.ok) throw new Error();
             const data = await res.json();
             setCinStatus(data.exists ? "existant" : "nouveau");
-            toast.dismiss(toastId);
             setCinAlert({ cin, exists: data.exists });
         } catch {
             setCinStatus(null);
-            toast.dismiss(toastId);
         }
     };
 
@@ -311,11 +299,6 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
 
     return (
         <div className="add-demande-overlay" onClick={handleClose}>
-            <Toaster
-                position="top-right"
-                containerStyle={{ zIndex: 999999 }}
-                toastOptions={{ style: { background: "transparent", boxShadow: "none", padding: 0 } }}
-            />
             <div className="add-demande-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="add-demande-header">
                     <h2>{isEditing ? "Modifier la demande" : "Nouvelle demande"}</h2>

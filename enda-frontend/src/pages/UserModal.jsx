@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import toast, { Toaster } from "react-hot-toast";
 
 const API_BASE = "http://127.0.0.1:8089";
 
@@ -97,8 +96,6 @@ const UserModal = ({ open, onClose, user = null, onSaved }) => {
                     body: JSON.stringify({ roles: form.roles }),
                 });
                 if (!rolesRes.ok) throw new Error();
-
-                toast.success("Utilisateur mis à jour.");
             } else {
                 const res = await fetch(`${API_BASE}/admin/users`, {
                     method: "POST",
@@ -110,7 +107,6 @@ const UserModal = ({ open, onClose, user = null, onSaved }) => {
                     return;
                 }
                 if (!res.ok) throw new Error();
-                toast.success("Utilisateur créé.");
             }
 
             onSaved?.();
@@ -133,11 +129,10 @@ const UserModal = ({ open, onClose, user = null, onSaved }) => {
                 body: JSON.stringify({ password: newPassword, temporary: true }),
             });
             if (!res.ok) throw new Error();
-            toast.success("Mot de passe réinitialisé.");
             setNewPassword("");
         } catch (err) {
             console.error(err);
-            toast.error("Echec de la réinitialisation.");
+            setError("Echec de la réinitialisation.");
         } finally {
             setResettingPassword(false);
         }
@@ -145,7 +140,6 @@ const UserModal = ({ open, onClose, user = null, onSaved }) => {
 
     return (
         <div className="user-modal-overlay" onClick={onClose}>
-            <Toaster position="top-right" />
             <div className="user-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="user-modal-header">
                     <h2>{isEditing ? "Modifier l'utilisateur" : "Nouvel utilisateur"}</h2>

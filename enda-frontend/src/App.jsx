@@ -7,12 +7,10 @@ import UsersPage from "./pages/UsersPage";
 import AgencesPage from "./pages/AgencesPage";
 import StatistiquesPage from "./pages/StatistiquesPage";
 import NotificationsPage from "./pages/NotificationsPage";
-import { Toaster } from "react-hot-toast";
 
 function App() {
   return (
     <BrowserRouter>
-      <Toaster position="top-right" containerStyle={{ zIndex: 999999 }} />
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<DashboardPage />} />
