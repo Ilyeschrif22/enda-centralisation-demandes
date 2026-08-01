@@ -1,0 +1,86 @@
+name: enda
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-enda_dev_password}
+      MYSQL_DATABASE: enda_clients
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - "./agences enda.sql:/tmp/agences-enda.sql:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD && mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'USE enda_db;'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  keycloak:
+    build:
+      context: ./enda-tamweel-keycloak-starter
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8180:8180"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  spring-backend:
+    build:
+      context: ./enda-springboot-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/enda_clients?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-enda_dev_password}
+      KEYCLOAK_ADMIN_SERVER_URL: http://keycloak:8180
+    ports:
+      - "8089:8089"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  fastapi-backend:
+    build:
+      context: ./enda-fast-api-backend
+    environment:
+      DATABASE_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-enda_dev_password}@mysql:3306/enda_db
+      SPRING_URL: http://spring-backend:8089
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GOOGLE_SERVICE_ACCOUNT_FILE: /run/secrets/google-service-account.json
+    volumes:
+      - type: bind
+        source: "${GOOGLE_SERVICE_ACCOUNT_FILE_HOST:?Set GOOGLE_SERVICE_ACCOUNT_FILE_HOST in .env to your Google service-account JSON file}"
+        target: /run/secrets/google-service-account.json
+        read_only: true
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      spring-backend:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./enda-frontend
+      args:
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8180}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-microservices-gateway}
+        VITE_KEYCLOAK_CLIENT: ${VITE_KEYCLOAK_CLIENT:-react-client}
+    ports:
+      - "5173:80"
+    depends_on:
+      - spring-backend
+      - keycloak
+
+volumes:
+  mysql-data:
+  keycloak-data:

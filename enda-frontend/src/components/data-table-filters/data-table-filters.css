@@ -1,0 +1,173 @@
+.data-table-filters {
+    width: 100%;
+    border: 1px solid #E0E2E7;
+    margin-bottom: 20px;
+    padding: 16px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background-color: #fff;
+    border-radius: 12px;
+}
+
+.data-table-filters-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 130px;
+    cursor: pointer;
+}
+
+.filter-field label {
+    font-size: 12px;
+    color: #6B7280;
+    white-space: nowrap;
+}
+
+.filter-field input,
+.filter-field select {
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid #E0E2E7;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1F2937;
+    outline: none;
+    background-color: #fff;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+    border: 2px solid var(--color-primary);
+}
+
+.filter-field-range {
+    flex: 1.4;
+    min-width: 180px;
+}
+
+.filter-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-range input {
+    width: 0;
+    flex: 1;
+}
+
+.filter-range span {
+    color: #9CA3AF;
+    font-size: 12px;
+}
+
+.filter-actions {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-count {
+    font-size: 12px;
+    color: var(--color-primary);
+    white-space: nowrap;
+}
+
+.filter-reset {
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid #E0E2E7;
+    border-radius: 6px;
+    background-color: #fff;
+    color: #374151;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.filter-reset:hover {
+    background-color: #fafafa;
+    border: 2px solid var(--color-primary);
+    color: var(--color-primary);
+}
+
+.date-field {
+    position: relative;
+    height: 34px;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 0 10px;
+    border: 1px solid #E0E2E7;
+    border-radius: 6px;
+    background-color: #fff;
+    cursor: pointer;
+}
+
+.date-field:hover,
+.date-field:focus-within {
+    border: 2px solid var(--color-primary);
+}
+
+.date-field-text {
+    font-size: 13px;
+    color: #1F2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.date-field-placeholder {
+    color: #9CA3AF;
+}
+
+.date-field svg {
+    flex: 0 0 auto;
+    color: #6B7280;
+    pointer-events: none;
+}
+
+.date-field-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.filter-field-date-range {
+    flex: 1.5;
+    min-width: 280px;
+}
+
+.date-range-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.date-range-separator {
+    color: #9CA3AF;
+    flex: 0 0 auto;
+}

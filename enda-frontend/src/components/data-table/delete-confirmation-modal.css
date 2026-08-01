@@ -1,0 +1,16 @@
+.delete-confirmation-overlay { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 20px; background: rgba(17, 24, 39, .48); animation: delete-overlay-in .15s ease-out; }
+.delete-confirmation-modal { width: min(420px, 100%); padding: 26px; border-radius: 14px; background: var(--color-white); box-shadow: 0 20px 45px rgba(0, 0, 0, .2); text-align: center; animation: delete-modal-in .18s ease-out; }
+.delete-confirmation-icon { display: grid; width: 48px; height: 48px; margin: 0 auto 14px; place-items: center; border-radius: 50%; background: #fef2f2; color: var(--color-danger); }
+.delete-confirmation-icon svg { width: 25px; height: 25px; }
+.delete-confirmation-modal h2 { font-size: 18px; font-weight: 600; color: var(--color-text); }
+.delete-confirmation-modal p { margin-top: 9px; color: var(--color-text-secondary); font-size: 13px; line-height: 1.55; }
+.delete-confirmation-modal strong { color: var(--color-text); font-weight: 600; }
+.delete-confirmation-actions { display: flex; justify-content: center; gap: 10px; margin-top: 22px; }
+.delete-confirmation-actions button { min-width: 112px; padding: 10px 16px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.delete-confirmation-cancel { border: 1px solid var(--color-border); background: var(--color-white); color: var(--color-text); }
+.delete-confirmation-submit { border: 1px solid var(--color-danger); background: var(--color-danger); color: #fff; }
+.delete-confirmation-submit:hover:not(:disabled) { background: #b91c1c; border-color: #b91c1c; }
+.delete-confirmation-actions button:disabled { cursor: not-allowed; opacity: .65; }
+@keyframes delete-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes delete-modal-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 420px) { .delete-confirmation-modal { padding: 22px 18px; } .delete-confirmation-actions button { flex: 1; min-width: 0; } }

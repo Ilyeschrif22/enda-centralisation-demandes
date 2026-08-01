@@ -1,0 +1,149 @@
+.users-page {
+    padding: 32px 36px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.users-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.users-page-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+
+.users-table {
+    height: auto;
+}
+
+.users-table .data-table-header-list li,
+.users-table .data-table-body-list li {
+    flex: 1;
+}
+
+.users-table .data-table-header-list li:first-child,
+.users-table .data-table-body-list li:first-child {
+    flex: 1.4;
+    padding: 0 10px;
+    justify-content: flex-start;
+}
+
+.users-table .data-table-header-list .actions,
+.users-table .data-table-body-list .row-actions {
+    flex: 0 0 72px;
+    justify-content: center;
+}
+
+.users-search {
+    height: 34px;
+    width: 260px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    font-size: 13px;
+    color: #111827;
+}
+
+.users-search:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(222, 0, 101, .1);
+}
+
+.users-table-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.users-table-name::before {
+    content: attr(data-initials);
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(222, 0, 101, .08);
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.users-table-name-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
+}
+
+.users-table-fullname {
+    font-weight: 600;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.users-table-username {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.users-table-roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.role-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(222, 0, 101, .08);
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-toggle {
+    border: none;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.status-toggle.enabled {
+    background: #dcfce7;
+    color: #059669;
+}
+
+.status-toggle.disabled {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.btn {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 9px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-primary {
+    border: none;
+    color: white;
+    background: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(222, 0, 101, .22);
+}

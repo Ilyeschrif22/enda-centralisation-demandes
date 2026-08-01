@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+sqlalchemy
+pymysql
+cryptography
+python-dotenv
+groq
+pydantic-settings
+pydantic
+sqlalchemy
+requests
+httpx
+apscheduler
+google-auth
+google-api-python-client

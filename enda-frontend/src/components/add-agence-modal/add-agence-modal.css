@@ -1,0 +1,136 @@
+.add-agence-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, .55);
+    backdrop-filter: blur(4px);
+}
+
+.add-agence-modal {
+    width: min(480px, 95vw);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .25);
+    animation: modalShow .25s ease;
+}
+
+@keyframes modalShow {
+    from {
+        opacity: 0;
+        transform: translateY(15px) scale(.98);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.add-agence-header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    color: white;
+    background: linear-gradient(135deg, var(--color-primary), #a00055);
+}
+
+.add-agence-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.add-agence-close {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    border: none;
+    color: white;
+    background: rgba(255, 255, 255, .15);
+    font-size: 25px;
+    cursor: pointer;
+}
+
+.add-agence-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.add-agence-error {
+    padding: 12px 15px;
+    border-radius: 10px;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #be123c;
+    font-size: 13px;
+}
+
+.add-agence-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.add-agence-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.required {
+    color: #dc2626;
+}
+
+.add-agence-field input,
+.add-agence-field select {
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 9px;
+    border: 1px solid #d1d5db;
+    background: white;
+    color: #111827;
+    font-size: 13px;
+    transition: .2s;
+}
+
+.add-agence-field input:hover,
+.add-agence-field select:hover {
+    border-color: #9ca3af;
+}
+
+.add-agence-field input:focus,
+.add-agence-field select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(222, 0, 101, .12);
+}
+
+.field-error {
+    font-size: 11px;
+    color: #dc2626;
+}
+
+.add-agence-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 6px;
+}
+
+.add-agence-field select:disabled {
+    cursor: not-allowed;
+    color: #94a3b8;
+    background: #f8fafc;
+}
+

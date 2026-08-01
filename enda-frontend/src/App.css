@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+:root {
+    --color-primary: #de0065;
+    --color-primary-dark: #b80053;
+    --color-primary-light: #f6d4e6;
+    --color-white: #ffffff;
+    --color-background: #f8f9fc;
+    --color-surface: #ffffff;
+    --color-border: #e5e7eb;
+    --color-text: #1f2937;
+    --color-text-secondary: #6b7280;
+    --color-success: #16a34a;
+    --color-warning: #f59e0b;
+    --color-danger: #dc2626;
+    --sidebar-width: 230px;
+    --navbar-height: 70px;
+    --border-radius: 12px;
+}
+
+* {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-size: 12px;
+}
+
+html,
+body,
+#root,
+.App {
+    height: 100%;
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-text);
+}
+
+.dashboard {
+    display: flex;
+    height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.navbar {
+    height: var(--navbar-height);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-white);
+}
+
+.content {
+    flex: 1;
+    padding: 20px 20px 100px 20px;
+    overflow: auto;
+    background: var(--color-background);
+}
+
+.layout-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 16px 24px 0;
+}
+
+.content-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-height: 40px;
+    margin-bottom: 14px;
+}
+
+.content-header .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 6px;
+    color: #fff;
+    background: var(--color-primary);
+    box-shadow: none;
+    font-size: 12px;
+}
+
+.content-header .btn-primary:hover,
+.content-header .btn-primary:focus,
+.content-header .btn-primary:focus-visible {
+    outline: none;
+    color: #fff;
+    background: var(--color-primary);
+    box-shadow: none;
+}
+
+

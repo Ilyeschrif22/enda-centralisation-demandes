@@ -1,0 +1,102 @@
+.notifications-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 4px;
+}
+
+.notifications-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.notifications-page-header h2 {
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--color-text, #1f2937);
+}
+
+.notifications-page-error {
+    padding: 10px 12px;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    color: #b91c1c;
+    background: #fef2f2;
+    font-size: 13px;
+}
+
+.notifications-page-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+    color: var(--color-text-secondary, #6b7280);
+    font-size: 14px;
+}
+
+.notifications-page-list {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-white, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--border-radius, 12px);
+    overflow: hidden;
+}
+
+.notifications-page-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: background .2s;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.notifications-page-item:last-child {
+    border-bottom: none;
+}
+
+.notifications-page-item:hover {
+    background: var(--color-background, #f8f9fc);
+}
+
+.notifications-page-item.unread {
+    background: rgba(222, 0, 101, 0.04);
+}
+
+.notifications-page-item .notif-dot {
+    margin-top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary, #de0065);
+    flex-shrink: 0;
+}
+
+.notifications-page-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.notifications-page-item-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text, #1f2937);
+}
+
+.notifications-page-item-message {
+    font-size: 13px;
+    color: var(--color-text-secondary, #6b7280);
+    line-height: 1.4;
+}
+
+.notifications-page-item-time {
+    font-size: 11px;
+    color: var(--color-text-secondary, #6b7280);
+    margin-top: 2px;
+}

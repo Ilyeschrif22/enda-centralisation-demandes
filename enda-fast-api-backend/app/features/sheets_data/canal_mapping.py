@@ -1,0 +1,6 @@
+
+SPREADSHEET_CANAL_MAP = {
+    # "1PhCnQsCt8Lf7EF1gT7c4Qu8cglUo4-92W4lKCknIYjM": "FACEBOOK",
+    # "1dVn0Ktfg4OGdS1Hj1blhnsBA2iU79pQ1qsIRjJTXAAY": "WHATSAPP",
+    "1Dqw7CjLKnm-VetU5rRJiZTb8byYqWZfQd9e9rW8zd-U" : "WEB"
+}

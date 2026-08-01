@@ -1,0 +1,8 @@
+.git
+bin
+conf
+lib
+providers
+README.md
+LICENSE.txt
+version.txt
