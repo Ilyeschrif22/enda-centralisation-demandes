@@ -236,5 +236,38 @@ docker compose down -v
 
 
 
+### 6.  POST /demandes :
+
+| Champ | Type | Description |
+|---|---|---|
+| `cin` | string | Identifiant utilisateur (normalisé trim + uppercase) |
+| `telephone` | string | Utilisé si nouvel utilisateur |
+| `nomFamille` | string | Nom |
+| `prenom` | string | Prénom |
+| `adresse` | string | Mappé sur `adresseDomicile` (utilisateur) et `adresseProjet` (demande) |
+| `genre` | string | |
+| `situationFamiliale` | string | |
+| `gouvernorat` | string | |
+| `delegation` | string | |
+| `codePostal` | string | |
+| `dateNaissance` | string `yyyy-MM-dd` | |
+| `secteurActivite` | string | Écrase aussi `activite` |
+| `activite` | string | |
+| `utilisationPret` | string | Mappé sur `besoin` |
+| `dureePret` | string | |
+| `agence` | string | Sert à déduire la `region` |
+| `typeDemande` | string (enum `TypeDemande`) | |
+| `capaciteRemboursement` | int / string numérique | |
+| `montantDemande` | string | Prioritaire sur `montant` |
+| `montant` | string | Fallback |
+
+### Champs auto-générés (ne pas envoyer)
+`id`, `dateSaisie`, `numeroDemande`, `typeClient`, `statut`, `canal`, `contacte`
+
+<img width="1374" height="713" alt="image" src="https://github.com/user-attachments/assets/d648c7f3-e861-4ad0-9f07-0cb24bc23ad0" />
+
+
+
+
 ## Licence
 Projet interne - **Enda Tamweel** (c) 2026. Tous droits réservés.
