@@ -5,10 +5,12 @@ import com.enda.backend.entity.Canal;
 import com.enda.backend.entity.ProspectFormulaire;
 import com.enda.backend.repository.ProspectRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProspectService {
@@ -20,15 +22,46 @@ public class ProspectService {
     }
 
     public void saveAll(List<ProspectRequestDTO> dtos) {
+        log.info("saveAll called with {} rows", dtos.size());
+
+        int saved = 0, skippedExisting = 0, skippedEmptyCin = 0, failed = 0;
 
         for (ProspectRequestDTO dto : dtos) {
+            String cin = dto.getCin();
 
-            boolean exists = repository.existsByCin(dto.getCin());
+            if (cin == null || cin.isBlank()) {
+                log.warn("Skipping row (empty CIN) — nom={}, prenom={}, telephone={}",
+                        dto.getNom(), dto.getPrenom(), dto.getTelephone());
+                skippedEmptyCin++;
+                continue;
+            }
 
-            if (!exists) {
-                repository.save(toEntity(dto));
+            try {
+                if (repository.existsByCin(cin)) {
+                    log.debug("Skipping row (CIN already exists): {}", cin);
+                    skippedExisting++;
+                    continue;
+                }
+
+                ProspectFormulaire entity = toEntity(dto);
+                repository.save(entity);
+                log.info("Saved prospect CIN={} nom={} prenom={} canal={}",
+                        cin, dto.getNom(), dto.getPrenom(), dto.getCanal());
+                saved++;
+
+            } catch (IllegalArgumentException e) {
+                // typiquement Canal.valueOf() qui échoue
+                log.error("Invalid enum/value for CIN={} — canal reçu='{}' — {}",
+                        cin, dto.getCanal(), e.getMessage());
+                failed++;
+            } catch (Exception e) {
+                log.error("Failed to save prospect CIN={}: {}", cin, e.getMessage(), e);
+                failed++;
             }
         }
+
+        log.info("saveAll done — saved={}, skippedExisting={}, skippedEmptyCin={}, failed={}, total={}",
+                saved, skippedExisting, skippedEmptyCin, failed, dtos.size());
     }
 
     private ProspectFormulaire toEntity(ProspectRequestDTO dto) {

@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useAuth } from "../../context/AuthContext";
 import './lead-profile-view.css';
 
 const API_BASE = "http://127.0.0.1:8089";
@@ -77,7 +78,7 @@ const Badge = ({ children, tone }) => (
 
 const JoignableBadge = ({ value }) => {
     if (value === null || value === undefined) return <Badge>—</Badge>;
-    return <Badge tone={value ? "green" : "red"}>{value ? "Oui" : "Non"}</Badge>;
+    return <Badge tone={value ? "green" : "red"}>{value ? "Joignable" : "Non joignable"}</Badge>;
 };
 
 const AgeEligibiliteBadge = ({ dateNaissance }) => {
@@ -90,7 +91,22 @@ const AgeEligibiliteBadge = ({ dateNaissance }) => {
     return <Badge tone="red">Non éligible {raison}</Badge>;
 };
 
+const TYPE_DEMANDE_LABELS = {
+    PREMIER_PRET: "Nouveau client",
+    RENOUVELLEMENT: "Ancien client",
+    REINTEGRATION: "Ancien client",
+};
 
+const TypeDemandeBadge = ({ typeDemande }) => {
+    const label = TYPE_DEMANDE_LABELS[typeDemande];
+    if (!label) return null;
+    return <Badge tone="purple">{label}</Badge>;
+};
+
+const InteresseBadge = ({ value }) => {
+    if (value === null || value === undefined) return <Badge tone="blue">—</Badge>;
+    return <Badge tone="blue">{value ? "Intéressé" : "Non intéressé"}</Badge>;
+};
 
 const CANAL_LABELS = {
     FACEBOOK: "Facebook",
@@ -122,11 +138,138 @@ const DemandeCard = ({ demande, onSelect }) => (
     </button>
 );
 
+const formatCommentDate = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
+
+const CommentsSection = ({ demandeId, currentUser }) => {
+    const [commentaires, setCommentaires] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [nouveauCommentaire, setNouveauCommentaire] = useState("");
+    const [envoiEnCours, setEnvoiEnCours] = useState(false);
+    const [error, setError] = useState(null);
+
+    const chargerCommentaires = useCallback(() => {
+        if (!demandeId) return;
+        setLoading(true);
+        fetch(`${API_BASE}/demandes/${demandeId}/commentaires`)
+            .then((res) => {
+                if (!res.ok) throw new Error(`Echec (${res.status})`);
+                return res.json();
+            })
+            .then(setCommentaires)
+            .catch((err) => {
+                console.error("Impossible de charger les commentaires:", err);
+            })
+            .finally(() => setLoading(false));
+    }, [demandeId]);
+
+    useEffect(() => {
+        chargerCommentaires();
+    }, [chargerCommentaires]);
+
+    const handleAjouterCommentaire = async () => {
+        const texte = nouveauCommentaire.trim();
+        if (!texte || !demandeId) return;
+
+        setEnvoiEnCours(true);
+        setError(null);
+
+        const auteurUsername = currentUser?.preferred_username || currentUser?.sub || "";
+        const auteurNom =
+            `${currentUser?.given_name || ""} ${currentUser?.family_name || ""}`.trim() ||
+            currentUser?.preferred_username ||
+            "Utilisateur";
+
+        try {
+            const res = await fetch(`${API_BASE}/demandes/${demandeId}/commentaires`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ texte, auteurUsername, auteurNom }),
+            });
+
+            if (!res.ok) throw new Error(`Echec (${res.status})`);
+
+            const created = await res.json();
+            setCommentaires((prev) => [...prev, created]);
+            setNouveauCommentaire("");
+        } catch (err) {
+            console.error(err);
+            setError("Impossible d'ajouter le commentaire.");
+        } finally {
+            setEnvoiEnCours(false);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            handleAjouterCommentaire();
+        }
+    };
+
+    return (
+        <div className="lead-profile-card lead-profile-comments">
+            <h3>Commentaires</h3>
+
+            {error && <p className="comment-error">{error}</p>}
+
+            <div className="comment-list">
+                {loading ? (
+                    <p className="comment-empty">Chargement...</p>
+                ) : commentaires.length === 0 ? (
+                    <p className="comment-empty">Aucun commentaire pour l'instant.</p>
+                ) : (
+                    commentaires.map((c) => (
+                        <div key={c.id} className="comment-item">
+                            <div className="comment-item-header">
+                                <span className="comment-author">{c.auteurNom || c.auteurUsername}</span>
+                                <span className="comment-date">{formatCommentDate(c.dateCreation)}</span>
+                            </div>
+                            <p className="comment-text">{c.texte}</p>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            <div className="comment-form">
+                <textarea
+                    value={nouveauCommentaire}
+                    onChange={(e) => setNouveauCommentaire(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ajouter un commentaire pour clarifier cette demande..."
+                    rows={3}
+                    maxLength={1000}
+                />
+                <div className="comment-form-footer">
+                    <span className="comment-char-count">{nouveauCommentaire.length}/1000</span>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={!nouveauCommentaire.trim() || envoiEnCours}
+                        onClick={handleAjouterCommentaire}
+                    >
+                        {envoiEnCours ? "Envoi..." : "Publier"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande }) => {
     const alertedLeadId = useRef(null);
+    const { user } = useAuth();
 
-    // Trigger the backend eligibility check/email exactly once per lead view,
-    // whenever the profile is opened for a lead outside the 18-65 range.
     useEffect(() => {
         if (!lead) return;
 
@@ -147,12 +290,15 @@ const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande 
     if (!lead) return null;
 
     const utilisateur = lead.utilisateur || {};
-    const nomPrenom = `${utilisateur.nom ?? ""} ${utilisateur.prenom ?? ""}`.trim();
+    const nomPrenom = `${utilisateur.prenom ?? ""} ${utilisateur.nom ?? ""}`.trim();
     const numeroDemande = lead.numeroDemande ?? lead.demande?.numeroDemande;
 
     const autresDemandes = allLeads.filter(
         (l) => l.utilisateur?.telephone === utilisateur.telephone && l.id !== lead.id
     );
+
+    const roles = user?.realm_access?.roles || [];
+    const isDirecteur = roles.includes("Directeur Régional") || roles.includes("Directeur Agence");
 
     return (
         <div className="lead-profile">
@@ -160,9 +306,11 @@ const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande 
                 <button type="button" className="btn btn-ghost" onClick={onBack}>
                     <ArrowLeftIcon /> Retour à la liste
                 </button>
-                <button type="button" className="btn btn-primary" onClick={onEdit}>
-                    <PencilIcon /> Modifier
-                </button>
+                {!isDirecteur && (
+                    <button type="button" className="btn btn-primary" onClick={onEdit}>
+                        <PencilIcon /> Modifier
+                    </button>
+                )}
             </div>
 
             <div className="lead-profile-card lead-profile-header">
@@ -177,14 +325,10 @@ const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande 
                                 Demande Numéro  ({numeroDemande})
                             </Badge>
                         )}
-                        {lead.typeClient && (
-                            <Badge>
-                                {lead.typeClient.charAt(0).toUpperCase() + lead.typeClient.slice(1).toLowerCase()}
-                            </Badge>
-                        )}
+                        <TypeDemandeBadge typeDemande={lead.typeDemande} />
                         <JoignableBadge value={lead.joignable} />
+                        <InteresseBadge value={lead.interesse} />
                         <AgeEligibiliteBadge dateNaissance={utilisateur.dateNaissance} />
-
                     </div>
                 </div>
                 <div className="lead-profile-amount">
@@ -216,7 +360,11 @@ const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande 
                 <div className="lead-profile-card">
                     <h3>Projet</h3>
                     <InfoRow icon={BriefcaseIcon} label="Activité" value={lead.activite} />
-                    <InfoRow icon={BriefcaseIcon} label="Type de demande" value={lead.typeDemande} />
+                    <InfoRow
+                        icon={BriefcaseIcon}
+                        label="Type de demande"
+                        value={TYPE_DEMANDE_LABELS[lead.typeDemande] ?? lead.typeDemande}
+                    />
                     <InfoRow icon={BriefcaseIcon} label="Besoin" value={lead.besoin} />
                     <InfoRow icon={MapPinIcon} label="Adresse projet" value={lead.adresseProjet} />
                 </div>
@@ -236,17 +384,13 @@ const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande 
                     <InfoRow icon={BriefcaseIcon} label="Statut du projet" value={lead.statutProjet} />
                     <InfoRow icon={PhoneIcon} label="Contacté" value={booleanLabel(lead.contacte)} />
                     <InfoRow icon={PhoneIcon} label="Joignable" value={booleanLabel(lead.joignable)} />
+                    <InfoRow icon={PhoneIcon} label="Intéressé" value={booleanLabel(lead.interesse)} />
                     <InfoRow icon={BriefcaseIcon} label="Retour agence" value={lead.retourAgence} />
-                    <InfoRow icon={BriefcaseIcon} label="Retour commercial" value={booleanLabel(lead.retourCommercial)} />
                 </div>
 
-                <div className="lead-profile-card lead-profile-observation">
-                    <h3>Observation</h3>
-                    <p>{displayValue(lead.observation)}</p>
-                </div>
+                
+                <CommentsSection demandeId={lead.id} currentUser={user} />
             </div>
-
-
         </div>
     );
 };

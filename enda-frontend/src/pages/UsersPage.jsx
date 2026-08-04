@@ -1,9 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AddUtilisateurModal from "../components/add-utilisateur-modal/add-utilisateur-modal";
 import "../components/data-table/data-table.css";
 import "./users-page.css";
 
 const API_BASE = "http://127.0.0.1:8089";
+
+const getInitials = (u) => {
+    const first = u.firstName?.[0] || u.username?.[0] || "";
+    const last = u.lastName?.[0] || "";
+    return (first + last).toUpperCase() || "?";
+};
+
+const getFullName = (u) => {
+    const name = [u.firstName, u.lastName].filter(Boolean).join(" ");
+    return name || u.username;
+};
 
 const UsersPage = () => {
     const [users, setUsers] = useState([]);
@@ -12,6 +23,7 @@ const UsersPage = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [search, setSearch] = useState("");
     const [openMenuId, setOpenMenuId] = useState(null);
+    const menuRef = useRef(null);
 
     const loadUsers = () => {
         setLoading(true);
@@ -25,6 +37,20 @@ const UsersPage = () => {
     };
 
     useEffect(loadUsers, []);
+
+    // Close the row menu when clicking anywhere outside it
+    useEffect(() => {
+        if (openMenuId === null) return;
+
+        const handleClickOutside = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                setOpenMenuId(null);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [openMenuId]);
 
     const openCreate = () => {
         setSelectedUser(null);
@@ -78,15 +104,21 @@ const UsersPage = () => {
     return (
         <div className="users-page">
             <div className="users-page-header">
-                <h2>Gestion des utilisateurs</h2>
-                <button type="button" className="btn btn-primary" onClick={openCreate}>
-                    + Nouvel utilisateur
-                </button>
+                <div>
+                    <h2>Gestion des utilisateurs</h2>
+                    <p className="users-page-subtitle">
+                        {users.length} utilisateur{users.length > 1 ? "s" : ""} au total
+                    </p>
+                </div>
+                <div className="users-page-actions">
+                    
+                    <button type="button" className="btn btn-primary" onClick={openCreate}>
+                        + Nouvel utilisateur
+                    </button>
+                </div>
             </div>
 
             <div className="data-table users-table">
-              
-
                 <div className="data-table-header">
                     <ul className="data-table-header-list">
                         <li>Nom</li>
@@ -101,26 +133,29 @@ const UsersPage = () => {
                 {loading ? (
                     <div className="data-table-empty">Chargement...</div>
                 ) : filteredUsers.length === 0 ? (
-                    <div className="data-table-empty">Aucun utilisateur</div>
+                    <div className="data-table-empty">
+                        {search ? "Aucun résultat pour cette recherche" : "Aucun utilisateur"}
+                    </div>
                 ) : (
                     filteredUsers.map((u) => (
                         <div className="data-table-body" key={u.id}>
                             <ul className="data-table-body-list">
                                 <li>
-                                   
                                         <div className="users-table-name-text">
-                                            
-                                            <span className="users-table-username">{u.username}</span>
+                                            <span className="users-table-fullname">{getFullName(u)}</span>
                                         </div>
-                                    
                                 </li>
-                                <li>{u.email}</li>
+                                <li>{u.email || "—"}</li>
                                 <li>{u.attributes?.agence?.[0] || "—"}</li>
                                 <li>
                                     <div className="users-table-roles">
-                                        {(u.roles || []).map((r) => (
-                                            <span key={r} className="role-badge">{r}</span>
-                                        ))}
+                                        {(u.roles || []).length > 0 ? (
+                                            u.roles.map((r) => (
+                                                <span key={r} className="role-badge">{r}</span>
+                                            ))
+                                        ) : (
+                                            <span className="users-table-empty-cell">—</span>
+                                        )}
                                     </div>
                                 </li>
                                 <li>
@@ -144,11 +179,11 @@ const UsersPage = () => {
                                         ⋮
                                     </button>
                                     {openMenuId === u.id && (
-                                        <div className="row-actions-menu">
+                                        <div className="row-actions-menu" ref={menuRef}>
                                             <button type="button" onClick={() => openEdit(u)}>
                                                 Modifier
                                             </button>
-                                            <button type="button" onClick={() => handleDelete(u)}>
+                                            <button type="button" className="danger" onClick={() => handleDelete(u)}>
                                                 Supprimer
                                             </button>
                                         </div>

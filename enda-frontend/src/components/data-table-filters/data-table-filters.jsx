@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import './data-table-filters.css';
 
 const ACTIVITES = ["Agriculture et Elevage", "Artisanat", "Commerce", "Production", "Autres"];
@@ -27,6 +27,12 @@ const JOIGNABLE_OPTIONS = [
     { value: "null", label: "Non défini" },
 ];
 
+const INTERESSE_OPTIONS = [
+    { value: "true", label: "Intéressé" },
+    { value: "false", label: "Non intéressé" },
+    { value: "null", label: "Non défini" },
+];
+
 const AGENCES = [
     "Alghalba", "Akouda", "Amdoune", "Ariana", "Bargou", "Beja", "Ben Arous", "Ben Garden",
     "Bir lahfay", "Bizerte", "Bizerte Sud", "Bni kaled", "Bouarada", "Bouhajla", "Chebba",
@@ -44,6 +50,23 @@ const AGENCES = [
     "Zaghouen", "Zarzis", "Zouhour",
 ];
 
+const REGIONS = [
+    "GT1",
+    "GT2",
+    "Bizerte",
+    "Nord Ouest 1",
+    "Nord Ouest 2",
+    "Sud Est",
+    "Sud Ouest",
+    "Centre Ouest 1",
+    "Centre Ouest 2",
+    "Centre Ouest 3",
+    "Sahel",
+    "Cap Bon",
+];
+
+const SAVED_FILTERS_KEY = "dataTable.savedFilters";
+
 const formatDate = (isoValue) => {
     if (!isoValue) return "";
     const [year, month, day] = isoValue.split("-");
@@ -56,6 +79,19 @@ const CalendarIcon = () => (
         <path d="M3 9.5H21" stroke="currentColor" strokeWidth="1.6" />
         <path d="M8 3V6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         <path d="M16 3V6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+);
+
+const BookmarkIcon = ({ filled }) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+);
+
+const TrashIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
     </svg>
 );
 
@@ -89,7 +125,7 @@ const DateField = ({ value, onChange, placeholder, min, max }) => {
     );
 };
 
-const initialFilters = {
+export const initialFilters = {
     cin: "",
     telephone: "",
     statutProjet: "",
@@ -102,33 +138,18 @@ const initialFilters = {
     statut: "",
     contacte: "",
     joignable: "",
+    interesse: "",
     dateFrom: "",
     dateTo: "",
 };
 
-const REGIONS = [
-    "GT1",
-    "GT2",
-    "Bizerte",
-    "Nord Ouest 1",
-    "Nord Ouest 2",
-    "Sud Est",
-    "Sud Ouest",
-    "Centre Ouest 1",
-    "Centre Ouest 2",
-    "Centre Ouest 3",
-    "Sahel",
-    "Cap Bon",
-];
-
-const applyFilters = (data, filters) => {
+export const applyFilters = (data, filters) => {
     return data.filter((lead) => {
         if (filters.cin && !(lead.cin ?? "").toLowerCase().includes(filters.cin.toLowerCase())) return false;
         if (filters.telephone && !(lead.telephone ?? "").includes(filters.telephone)) return false;
         if (filters.statutProjet && lead.statutProjet !== filters.statutProjet) return false;
         if (filters.activite && lead.activite !== filters.activite) return false;
 
-        // region lives under lead.utilisateur.region, not lead.region
         if (filters.region && lead.utilisateur?.region !== filters.region) return false;
 
         if (filters.agence === "SANS_AGENCE") {
@@ -140,7 +161,6 @@ const applyFilters = (data, filters) => {
         if (filters.canal && lead.canal !== filters.canal) return false;
         if (filters.adresseProjet && !(lead.adresseProjet ?? "").toLowerCase().includes(filters.adresseProjet.toLowerCase())) return false;
 
-
         if (filters.statut && lead.statut !== filters.statut) return false;
 
         if (filters.contacte !== "" && Boolean(lead.contacte) !== (filters.contacte === "true")) return false;
@@ -150,6 +170,11 @@ const applyFilters = (data, filters) => {
             if (lead.joignable !== filterVal) return false;
         }
 
+        if (filters.interesse !== "") {
+            const filterVal = filters.interesse === "null" ? null : filters.interesse === "true";
+            if (lead.interesse !== filterVal) return false;
+        }
+
         if (filters.dateFrom && (lead.dateSaisie ?? "") < filters.dateFrom) return false;
         if (filters.dateTo && (lead.dateSaisie ?? "") > filters.dateTo) return false;
 
@@ -157,27 +182,155 @@ const applyFilters = (data, filters) => {
     });
 };
 
-const DataTableFilters = ({ data = [], onFilteredChange }) => {
-    const [filters, setFilters] = useState(initialFilters);
+const loadSavedFilters = () => {
+    try {
+        const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
+    }
+};
 
-    const filteredData = useMemo(() => applyFilters(data, filters), [data, filters]);
+const persistSavedFilters = (list) => {
+    try {
+        localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list));
+    } catch {
+    }
+};
+
+const DataTableFilters = ({ filters, onFilterChange }) => {
+
+    const [savedFilters, setSavedFilters] = useState([]);
+    const [activeSavedId, setActiveSavedId] = useState("");
+    const [showSaveForm, setShowSaveForm] = useState(false);
+    const [saveName, setSaveName] = useState("");
+    const saveInputRef = useRef(null);
 
     useEffect(() => {
-        onFilteredChange?.(filteredData);
-    }, [filteredData, onFilteredChange]);
+        setSavedFilters(loadSavedFilters());
+    }, []);
+
+    useEffect(() => {
+        if (showSaveForm) {
+            saveInputRef.current?.focus();
+        }
+    }, [showSaveForm]);
 
     const update = (key, value) => {
-        setFilters((prev) => ({ ...prev, [key]: value }));
+        onFilterChange({ ...filters, [key]: value });
+        setActiveSavedId("");
     };
 
     const reset = () => {
-        setFilters(initialFilters);
+        onFilterChange(initialFilters);
+        setActiveSavedId("");
     };
 
     const activeCount = Object.values(filters).filter(Boolean).length;
 
+    const openSaveForm = () => {
+        setSaveName("");
+        setShowSaveForm(true);
+    };
+
+    const cancelSaveForm = () => {
+        setShowSaveForm(false);
+        setSaveName("");
+    };
+
+    const confirmSave = () => {
+        const name = saveName.trim();
+        if (!name) return;
+
+        const newEntry = { id: `${Date.now()}`, name, filters };
+        const next = [...savedFilters, newEntry];
+
+        setSavedFilters(next);
+        persistSavedFilters(next);
+        setActiveSavedId(newEntry.id);
+        setShowSaveForm(false);
+        setSaveName("");
+    };
+
+    const handleSaveKeyDown = (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            confirmSave();
+        } else if (e.key === "Escape") {
+            cancelSaveForm();
+        }
+    };
+
+    const applySaved = (id) => {
+        setActiveSavedId(id);
+        if (!id) return;
+        const saved = savedFilters.find((f) => f.id === id);
+        if (saved) onFilterChange(saved.filters);
+    };
+
+    const deleteSaved = (id) => {
+        const next = savedFilters.filter((f) => f.id !== id);
+        setSavedFilters(next);
+        persistSavedFilters(next);
+        if (activeSavedId === id) setActiveSavedId("");
+    };
+
     return (
         <div className="data-table-filters">
+            <div className="data-table-filters-row saved-filters-row">
+                <div className="filter-field saved-filters-select-field">
+                    <label>Filtres enregistrés</label>
+                    <select value={activeSavedId} onChange={(e) => applySaved(e.target.value)}>
+                        <option value="">Aucun</option>
+                        {savedFilters.map((f) => (
+                            <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {activeSavedId && (
+                    <button
+                        type="button"
+                        className="saved-filter-delete"
+                        title="Supprimer ce filtre enregistré"
+                        onClick={() => deleteSaved(activeSavedId)}
+                    >
+                        <TrashIcon />
+                    </button>
+                )}
+
+                {showSaveForm ? (
+                    <div className="save-filter-form">
+                        <input
+                            ref={saveInputRef}
+                            type="text"
+                            placeholder="Nom du filtre"
+                            value={saveName}
+                            maxLength={40}
+                            onChange={(e) => setSaveName(e.target.value)}
+                            onKeyDown={handleSaveKeyDown}
+                        />
+                        <button type="button" className="save-filter-confirm" disabled={!saveName.trim()} onClick={confirmSave}>
+                            Enregistrer
+                        </button>
+                        <button type="button" className="save-filter-cancel" onClick={cancelSaveForm}>
+                            Annuler
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        className="save-filter-trigger"
+                        disabled={activeCount === 0}
+                        title={activeCount === 0 ? "Ajoutez au moins un filtre pour l'enregistrer" : "Enregistrer les filtres actuels"}
+                        onClick={openSaveForm}
+                    >
+                        <BookmarkIcon />
+                        Enregistrer les filtres
+                    </button>
+                )}
+            </div>
+
             <div className="data-table-filters-row">
                 <div className="filter-field">
                     <label>CIN</label>
@@ -199,14 +352,17 @@ const DataTableFilters = ({ data = [], onFilteredChange }) => {
                     />
                 </div>
 
-
-
-                <div className="filter-field">
-                    <label>Nature du prêt</label>
-                    <select value={filters.activite} onChange={(e) => update("activite", e.target.value)}>
+                 <div className="filter-field">
+                    <label>Région</label>
+                    <select
+                        value={filters.region}
+                        onChange={(e) => update("region", e.target.value)}
+                    >
                         <option value="">Toutes</option>
-                        {ACTIVITES.map((a) => (
-                            <option key={a} value={a}>{a}</option>
+                        {REGIONS.map((region) => (
+                            <option key={region} value={region}>
+                                {region}
+                            </option>
                         ))}
                     </select>
                 </div>
@@ -222,28 +378,7 @@ const DataTableFilters = ({ data = [], onFilteredChange }) => {
                     </select>
                 </div>
 
-                <div className="filter-field">
-                    <label>Région</label>
-
-                    <select
-                        value={filters.region}
-                        onChange={(e) => update("region", e.target.value)}
-                    >
-                        <option value="">
-                            Toutes
-                        </option>
-
-                        {REGIONS.map((region) => (
-                            <option
-                                key={region}
-                                value={region}
-                            >
-                                {region}
-                            </option>
-                        ))}
-
-                    </select>
-                </div>
+               
 
                 <div className="filter-field">
                     <label>Canal</label>
@@ -257,19 +392,8 @@ const DataTableFilters = ({ data = [], onFilteredChange }) => {
             </div>
 
             <div className="data-table-filters-row">
-
-                {/* <div className="filter-field">
-                    <label>Montant demandé</label>
-                    <input
-                        type="text"
-                        placeholder="Montant"
-                        value={filters.montant}
-                        onChange={(e) => update("montant", e.target.value)}
-                    />
-                </div> */}
-
                 <div className="filter-field">
-                    <label>Statut</label>
+                    <label>Statut (dlf)</label>
                     <select value={filters.statut} onChange={(e) => update("statut", e.target.value)}>
                         <option value="">Tous</option>
                         {STATUT_OPTIONS.map((option) => (
@@ -293,6 +417,16 @@ const DataTableFilters = ({ data = [], onFilteredChange }) => {
                     <select value={filters.joignable} onChange={(e) => update("joignable", e.target.value)}>
                         <option value="">Tous</option>
                         {JOIGNABLE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="filter-field">
+                    <label>Intéressé</label>
+                    <select value={filters.interesse} onChange={(e) => update("interesse", e.target.value)}>
+                        <option value="">Tous</option>
+                        {INTERESSE_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>

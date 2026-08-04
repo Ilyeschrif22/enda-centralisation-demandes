@@ -33,8 +33,9 @@ const RowActionsMenu = ({ anchorRect, onView, onEdit, onDelete, onReassign, onCl
     const roles = user?.realm_access?.roles || [];
     const isCommercialAgent = roles.includes("Call center");
     const isAdmin = roles.includes("Admin");
+    const isViewOnlyRole = roles.includes("Directeur Agence") || roles.includes("Directeur Régional");
 
-    const canEditReassign = isAdmin || !isCommercialAgent;
+    const canEditReassign = isAdmin || (!isCommercialAgent && !isViewOnlyRole);
 
     useEffect(() => {
         const handleClickOutside = (e) => {

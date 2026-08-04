@@ -171,3 +171,138 @@
     color: #9CA3AF;
     flex: 0 0 auto;
 }
+.saved-filters-row {
+    align-items: center;
+    padding-bottom: 8px;
+    margin-bottom: 2px;
+    gap: 8px;
+}
+
+.saved-filters-select-field {
+    flex: 0 1 170px;
+    min-width: 130px;
+    gap: 2px;
+}
+
+.saved-filters-select-field label {
+    font-size: 10px;
+}
+
+.saved-filters-select-field select {
+    height: 26px;
+    padding: 0 6px;
+    font-size: 11px;
+    border-radius: 5px;
+}
+
+.saved-filter-delete {
+    height: 26px;
+    width: 26px;
+    display: flex;
+    margin-top: 15px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #E0E2E7;
+    border-radius: 5px;
+    background-color: #fff;
+    color: #9CA3AF;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.saved-filter-delete svg {
+    width: 11px;
+    height: 11px;
+}
+
+.saved-filter-delete:hover {
+    border-color: #EF4444;
+    color: #EF4444;
+    background-color: #FEF2F2;
+}
+
+.save-filter-trigger {
+    height: 26px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid #E0E2E7;
+    border-radius: 5px;
+    background-color: #fff;
+    color: #374151;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+.save-filter-trigger svg {
+    width: 11px;
+    height: 11px;
+}
+
+.save-filter-trigger:hover:not(:disabled) {
+    border: 1.5px solid var(--color-primary);
+    color: var(--color-primary);
+}
+
+.save-filter-trigger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.save-filter-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.save-filter-form input {
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid #E0E2E7;
+    border-radius: 5px;
+    font-size: 11px;
+    color: #1F2937;
+    outline: none;
+    width: 130px;
+}
+
+.save-filter-form input:focus {
+    border: 1.5px solid var(--color-primary);
+}
+
+.save-filter-confirm {
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid var(--color-primary);
+    border-radius: 5px;
+    background-color: var(--color-primary);
+    color: #fff;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.save-filter-confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.save-filter-cancel {
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid #E0E2E7;
+    border-radius: 5px;
+    background-color: #fff;
+    color: #6B7280;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.save-filter-cancel:hover {
+    background-color: #fafafa;
+}

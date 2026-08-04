@@ -53,6 +53,70 @@ const nextJoignableValue = (current) => {
     return null;
 };
 
+const getInteresseClass = (interesse) => {
+    if (interesse === true) return "status-interesse-oui";
+    if (interesse === false) return "status-interesse-non";
+    return "status-default";
+};
+
+const getInteresseLabel = (interesse) => {
+    if (interesse === true) return "Intéressé";
+    if (interesse === false) return "Non intéressé";
+    return "Intéressé ?";
+};
+
+const nextInteresseValue = (current) => {
+    if (current === null || current === undefined) return true;
+    if (current === true) return false;
+    return null;
+};
+
+const getSortValue = (lead, key) => {
+    switch (key) {
+        case "dateSaisie":
+            return new Date(lead.dateSaisie).getTime() || 0;
+        case "nom":
+            return `${lead.utilisateur?.nom || ""} ${lead.utilisateur?.prenom || ""}`.toLowerCase();
+        case "telephone":
+            return lead.utilisateur?.telephone || "";
+        case "cin":
+            return lead.utilisateur?.cin || "";
+        case "montant":
+            return Number(lead.montant) || 0;
+        case "agence":
+            return lead.agence || "";
+        case "region":
+            return lead.utilisateur?.region || "";
+        case "statut":
+            return lead.statut || "";
+        default:
+            return "";
+    }
+};
+
+const SortIcon = ({ direction }) => {
+    return (
+        <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`sort-icon ${direction ? "sort-icon-active" : "sort-icon-neutral"}`}
+            style={{
+                transform: direction === "asc" ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.15s ease",
+            }}
+        >
+            <path d="m7 15 5 5 5-5" />
+            <path d="m7 9 5-5 5 5" />
+        </svg>
+    );
+};
+
 const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
 
     const { user } = useAuth();
@@ -71,12 +135,14 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
     const [leadToDelete, setLeadToDelete] = useState(null);
     const [updatingStatusId, setUpdatingStatusId] = useState(null);
     const [updatingContacteId, setUpdatingContacteId] = useState(null);
+    const [updatingInteresseId, setUpdatingInteresseId] = useState(null);
     const [updatingJoignableId, setUpdatingJoignableId] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
     const [statusError, setStatusError] = useState(null);
     const [page, setPage] = useState(1);
     const [regionData, setRegionData] = useState(null);
     const [regionLoading, setRegionLoading] = useState(false);
+    const [sortConfig, setSortConfig] = useState({ key: "dateSaisie", direction: "desc" });
 
     useEffect(() => {
         if (!isDirecteurRegional) {
@@ -102,6 +168,17 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
             .finally(() => setRegionLoading(false));
     }, [isDirecteurRegional, user]);
 
+    const handleSort = (key) => {
+        setSortConfig((prev) => {
+            if (prev.key === key) {
+                return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+            }
+            return { key, direction: "asc" };
+        });
+    };
+
+    const getSortDirection = (key) => (sortConfig.key === key ? sortConfig.direction : null);
+
     const filteredData = useMemo(() => {
         const isAssistantAgent = roles.includes("Assistant Agent");
 
@@ -113,12 +190,17 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
             result = result.filter((lead) => lead.agence === userAgence);
         }
 
-        result = [...result].sort(
-            (a, b) => new Date(b.dateSaisie) - new Date(a.dateSaisie)
-        );
+        result = [...result].sort((a, b) => {
+            const valA = getSortValue(a, sortConfig.key);
+            const valB = getSortValue(b, sortConfig.key);
+
+            if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+            return 0;
+        });
 
         return result;
-    }, [data, user, isDirecteurRegional, regionData]);
+    }, [data, user, isDirecteurRegional, regionData, sortConfig]);
 
     const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
 
@@ -248,6 +330,37 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
         }
     };
 
+    const handleInteresseChange = async (lead, newValue) => {
+        const previousInteresse = lead.interesse;
+        if (newValue === previousInteresse) return;
+
+        setStatusError(null);
+        setUpdatingInteresseId(lead.id);
+
+        onLeadUpdated?.({ ...lead, interesse: newValue });
+
+        try {
+            const res = await fetch(`${API_BASE}/demandes/${lead.id}/interesse`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(newValue),
+            });
+
+            if (!res.ok) {
+                throw new Error(`Echec de la mise à jour du statut intéressé (${res.status})`);
+            }
+
+            const updated = await res.json();
+            onLeadUpdated?.(updated);
+        } catch (err) {
+            console.error(err);
+            setStatusError("Impossible de changer le statut intéressé.");
+            onLeadUpdated?.({ ...lead, interesse: previousInteresse });
+        } finally {
+            setUpdatingInteresseId(null);
+        }
+    };
+
     const handleJoignableChange = async (lead, newValue) => {
         const previousJoignable = lead.joignable;
         if (newValue === previousJoignable) return;
@@ -302,16 +415,42 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
                                 checked={checked}
                                 onChange={(e) => setChecked(e.target.checked)}
                             /></li>
-                            <li>Date de creation</li>
-                            <li>Nom &amp; Prénom</li>
-                            <li>Téléphone</li>
-                            <li>Cin</li>
-                            <li>Montant</li>
-                            <li>Agence</li>
-                            <li>Région</li>
-                            <li className="statu">Statut</li>
+                            <li className="sortable-header" onClick={() => handleSort("dateSaisie")}>
+                                <span>Date de creation</span>
+                                <SortIcon direction={getSortDirection("dateSaisie")} />
+                            </li>
+                            <li className="sortable-header" onClick={() => handleSort("nom")}>
+                                <span>Nom &amp; Prénom</span>
+                                <SortIcon direction={getSortDirection("nom")} />
+                            </li>
+                            <li className="sortable-header" onClick={() => handleSort("telephone")}>
+                                <span>Téléphone</span>
+                                <SortIcon direction={getSortDirection("telephone")} />
+                            </li>
+                            <li className="sortable-header" onClick={() => handleSort("cin")}>
+                                <span>Cin</span>
+                                <SortIcon direction={getSortDirection("cin")} />
+                            </li>
+                            <li className="sortable-header" onClick={() => handleSort("montant")}>
+                                <span>Montant</span>
+                                <SortIcon direction={getSortDirection("montant")} />
+                            </li>
+                            <li className="sortable-header" onClick={() => handleSort("region")}>
+                                <span>Région</span>
+                                <SortIcon direction={getSortDirection("region")} />
+                            </li>
+                            <li className="sortable-header" onClick={() => handleSort("agence")}>
+                                <span>Agence</span>
+                                <SortIcon direction={getSortDirection("agence")} />
+                            </li>
                             <li className="statu-contact">Contact</li>
                             <li className="statu-contact">Joignable</li>
+                            <li className="statu-contact">Intéressé</li>
+                            <li className="statu sortable-header" onClick={() => handleSort("statut")}>
+                                <span>Statut</span>
+                                <SortIcon direction={getSortDirection("statut")} />
+                            </li>
+
                             <li className="statu-canal">Canal</li>
 
                             <li className="actions">Actions</li>
@@ -339,23 +478,9 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
                                         <li>{lead.utilisateur?.telephone}</li>
                                         <li>{lead.utilisateur?.cin}</li>
                                         <li>{lead.montant?.toLocaleString()} DT</li>
-                                        <li>{lead.agence}</li>
                                         <li>{lead.utilisateur?.region}</li>
-                                        <li className="statu">
-                                            <select
-                                                className={`status-demande ${getStatusClass(lead.statut)}`}
-                                                value={lead.statut || "NON_SAISIE"}
-                                                disabled={!canUpdateStatus || updatingStatusId === lead.id}
-                                                onClick={(e) => e.stopPropagation()}
-                                                onChange={(e) => handleStatusChange(lead, e.target.value)}
-                                            >
-                                                {STATUT_OPTIONS.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </li>
+                                        <li>{lead.agence}</li>
+
                                         <li className="status-contact">
                                             <button
                                                 type="button"
@@ -369,6 +494,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
                                                 {lead.contacte ? "Contacté" : "Non contacté"}
                                             </button>
                                         </li>
+
                                         <li className="status-joinable">
                                             <button
                                                 type="button"
@@ -383,11 +509,41 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
                                                 {getJoignableLabel(lead.joignable)}
                                             </button>
                                         </li>
+                                        <li className="status-interesse">
+                                            <button
+                                                type="button"
+                                                className={`status-contact ${getInteresseClass(lead.interesse)}`}
+                                                disabled={!canUpdateStatus || lead.joignable !== true || updatingInteresseId === lead.id}
+                                                title={lead.joignable !== true ? "Le client doit être Joignable d'abord" : ""}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleInteresseChange(lead, nextInteresseValue(lead.interesse));
+                                                }}
+                                            >
+                                                {getInteresseLabel(lead.interesse)}
+                                            </button>
+                                        </li>
+                                        <li className="statu">
+                                            <select
+                                                className={`status-demande ${getStatusClass(lead.statut)}`}
+                                                value={lead.statut || "NON_SAISIE"}
+                                                disabled={!canUpdateStatus || !(lead.contacte === true && lead.joignable === true && lead.interesse === true) || updatingStatusId === lead.id}
+                                                title={!(lead.contacte === true && lead.joignable === true && lead.interesse === true) ? "Contacté, Joignable et Intéressé doivent être validés d'abord" : ""}
+                                                onClick={(e) => e.stopPropagation()}
+                                                onChange={(e) => handleStatusChange(lead, e.target.value)}
+                                            >
+                                                {STATUT_OPTIONS.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </li>
                                         <li className="statu-canal">
                                             <span className="canal-badge">{lead.canal}</span>
                                         </li>
                                         <li className="row-actions">
-                                            {isCommercialAgent ? (
+                                            {(isCommercialAgent || isDirecteur) ? (
                                                 <button
                                                     type="button"
                                                     className="row-actions-trigger"

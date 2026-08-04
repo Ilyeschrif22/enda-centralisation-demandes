@@ -73,6 +73,7 @@ const FUNNEL_COLORS = [
     "#B8005A",
     "#920048",
     "#6B0035",
+    "#4A0025",
 ];
 
 const CLIENT_TYPE_COLORS = ["#DE0065", "#0EA5E9"];
@@ -168,6 +169,10 @@ const StatistiquesPage = () => {
             (l) => l.joignable === true
         ).length;
 
+        const interesses = leads.filter(
+            (l) => l.interesse === true
+        ).length;
+
         const saisies = leads.filter(
             (l) => l.statut && l.statut !== "NON_SAISIE"
         ).length;
@@ -189,9 +194,14 @@ const StatistiquesPage = () => {
                 fill: FUNNEL_COLORS[2],
             },
             {
+                name: "Intéressés",
+                value: interesses,
+                fill: FUNNEL_COLORS[3],
+            },
+            {
                 name: "Saisies",
                 value: saisies,
-                fill: FUNNEL_COLORS[3],
+                fill: FUNNEL_COLORS[4],
             },
         ];
     }, [leads]);
@@ -253,6 +263,46 @@ const StatistiquesPage = () => {
         }));
     }, [leads]);
 
+
+    const montantData = useMemo(() => {
+        const montants = leads
+            .map((l) => parseFloat(l.montant))
+            .filter((m) => !Number.isNaN(m));
+
+        const total = montants.reduce((sum, m) => sum + m, 0);
+        const moyenne = montants.length > 0 ? total / montants.length : 0;
+
+        return { total, moyenne, count: montants.length };
+    }, [leads]);
+
+    const interesseData = useMemo(() => {
+        const counts = { "Intéressé": 0, "Non intéressé": 0, "Non renseigné": 0 };
+
+        leads.forEach((lead) => {
+            if (lead.interesse === true) counts["Intéressé"]++;
+            else if (lead.interesse === false) counts["Non intéressé"]++;
+            else counts["Non renseigné"]++;
+        });
+
+        return Object.entries(counts)
+            .filter(([, value]) => value > 0)
+            .map(([name, value]) => ({ name, value }));
+    }, [leads]);
+
+    const activiteData = useMemo(() => {
+        const counts = {};
+
+        leads.forEach((lead) => {
+            const key = lead.activite || "Non renseignée";
+            counts[key] = (counts[key] || 0) + 1;
+        });
+
+        return Object.entries(counts)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 8);
+    }, [leads]);
+
     if (loading) {
         return (
             <div className="stats-page-loading">
@@ -274,7 +324,7 @@ const StatistiquesPage = () => {
             <div className="stats-charts-grid">
 
                 <div className="stats-chart-card stats-chart-card-wide">
-                    <h3>Évolution des demandes (30 derniers jours saisis)</h3>
+                    <h3>Évolution des demandes reçues (30 derniers jours)</h3>
 
                     <ResponsiveContainer width="100%" height={260}>
                         <LineChart data={evolutionData}>
@@ -399,6 +449,8 @@ const StatistiquesPage = () => {
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
+
+            
 
                 <div className="stats-chart-card">
                     <h3>Répartition par statut des demandes</h3>
@@ -526,6 +578,32 @@ const StatistiquesPage = () => {
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
+
+
+                <div className="stats-chart-card">
+                    <h3>Intérêt des prospects</h3>
+
+                    <ResponsiveContainer width="100%" height={280}>
+                        <PieChart>
+                            <Pie
+                                data={interesseData}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={90}
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            >
+                                {interesseData.map((entry, index) => (
+                                    <Cell key={entry.name} fill={STATUT_COLORS[index % STATUT_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+
+              
 
             </div>
         </div>

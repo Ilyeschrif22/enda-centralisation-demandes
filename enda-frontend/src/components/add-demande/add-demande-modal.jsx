@@ -63,9 +63,15 @@ const initialForm = {
     utilisationPret: "",
     capaciteRemboursement: "",
     dureePret: "",
+    valide: false,
+    contacte: false,
+    interesse: null,
+    joignable: null,
 };
 
-const REQUIRED_FIELDS = Object.keys(initialForm);
+const REQUIRED_FIELDS = Object.keys(initialForm).filter(
+    (key) => !["valide", "contacte", "interesse", "joignable"].includes(key)
+);
 
 const Field = ({ label, error, children }) => (
     <div className="add-demande-field">
@@ -99,6 +105,10 @@ const formFromLead = (lead) => {
         utilisationPret: lead.besoin ?? "",
         capaciteRemboursement: lead.capaciteRemboursement?.toString() ?? "",
         dureePret: lead.dureePret ?? "",
+        valide: lead.valide ?? false,
+        contacte: lead.contacte ?? false,
+        interesse: lead.interesse ?? null,
+        joignable: lead.joignable ?? null,
     };
 };
 
@@ -323,151 +333,207 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                         {submitError && <div className="add-demande-error">{submitError}</div>}
 
                         <div className="add-demande-columns">
-                        <div className="add-demande-column">
-                        <div className="add-demande-section add-demande-section-request">
-                            <div className="add-demande-grid">
-                                <Field label="Type demande" error={errors.typeDemande}>
-                                    <select value={form.typeDemande} onChange={(e) => setField("typeDemande", e.target.value)}>
-                                        <option value="">Sélectionner...</option>
-                                        {TYPE_DEMANDE_OPTIONS.map((o) => (
-                                            <option key={o.value} value={o.value}>{o.label}</option>
-                                        ))}
-                                    </select>
-                                </Field>
-                            </div>
-                        </div>
+                            <div className="add-demande-column">
+                                <div className="add-demande-section add-demande-section-request">
+                                    <div className="add-demande-grid">
+                                        <Field label="Type demande" error={errors.typeDemande}>
+                                            <select value={form.typeDemande} onChange={(e) => setField("typeDemande", e.target.value)}>
+                                                <option value="">Sélectionner...</option>
+                                                {TYPE_DEMANDE_OPTIONS.map((o) => (
+                                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                                ))}
+                                            </select>
+                                        </Field>
 
-                        <div className="add-demande-section add-demande-section-identity">
-                            <h3>Identité</h3>
-                            <div className="add-demande-grid">
-                                <Field label="Nom de famille" error={errors.nomFamille}>
-                                    <input type="text" value={form.nomFamille} onChange={(e) => setField("nomFamille", e.target.value)} />
-                                </Field>
-                                <Field label="Prénom" error={errors.prenom}>
-                                    <input type="text" value={form.prenom} onChange={(e) => setField("prenom", e.target.value)} />
-                                </Field>
-                                <Field label="Date de naissance" error={errors.dateNaissance}>
-                                    <input type="date" value={form.dateNaissance} onChange={(e) => setField("dateNaissance", e.target.value)} />
-                                </Field>
-                                <Field label="Genre" error={errors.genre}>
-                                    <select value={form.genre} onChange={(e) => setField("genre", e.target.value)}>
-                                        <option value="">Sélectionner...</option>
-                                        {GENRE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                                    </select>
-                                </Field>
-                                <Field label="Situation familiale" error={errors.situationFamiliale}>
-                                    <select value={form.situationFamiliale} onChange={(e) => setField("situationFamiliale", e.target.value)}>
-                                        <option value="">Sélectionner...</option>
-                                        {SITUATION_FAMILIALE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                                    </select>
-                                </Field>
-                                <Field label="CIN" error={errors.cin}>
-                                    <input
-                                        type="text"
-                                        maxLength={8}
-                                        value={form.cin}
-                                        onChange={(e) => handleCinChange(e.target.value)}
-                                    />
-                                </Field>
-                            </div>
-                        </div>
+                                        <div className="add-demande-field">
+                                            <label>Validation</label>
+                                            <select
+                                                value={form.valide ? "true" : "false"}
+                                                onChange={(e) => setField("valide", e.target.value === "true")}
+                                            >
+                                                <option value="false">Non validée</option>
+                                                <option value="true">Validée</option>
+                                            </select>
+                                        </div>
 
-                        <div className="add-demande-section add-demande-section-activity">
-                            <h3>Activité</h3>
-                            <div className="add-demande-grid">
-                                <Field label="Secteur d'activité" error={errors.secteurActivite}>
-                                    <select value={form.secteurActivite} onChange={(e) => setField("secteurActivite", e.target.value)}>
-                                        <option value="">Sélectionner...</option>
-                                        {SECTEURS.map((o) => <option key={o} value={o}>{o}</option>)}
-                                    </select>
-                                </Field>
-                                <Field label="Activité" error={errors.activite}>
-                                    <select
-                                        value={form.activite}
-                                        onChange={(e) => setField("activite", e.target.value)}
-                                        disabled={!form.secteurActivite}
-                                    >
-                                        <option value="">{form.secteurActivite ? "Sélectionner..." : "Choisir un secteur"}</option>
-                                        {activiteOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                                    </select>
-                                </Field>
-                            </div>
-                        </div>
-                        </div>
+                                        <div className="add-demande-field">
+                                            <label>Contact</label>
+                                            <select
+                                                value={form.contacte ? "true" : "false"}
+                                                onChange={(e) => setField("contacte", e.target.value === "true")}
+                                            >
+                                                <option value="false">Non contacté</option>
+                                                <option value="true">Contacté</option>
+                                            </select>
+                                        </div>
 
-                        <div className="add-demande-column">
-                        <div className="add-demande-section add-demande-section-contact">
-                            <h3>Contact & localisation</h3>
-                            <div className="add-demande-grid">
-                                <Field label="N° de téléphone" error={errors.telephone}>
-                                    <input
-                                        type="text"
-                                        maxLength={8}
-                                        value={form.telephone}
-                                        onChange={(e) => setField("telephone", e.target.value.replace(/\D/g, ""))}
-                                    />
-                                </Field>
-                                <Field label="Adresse" error={errors.adresse}>
-                                    <input type="text" value={form.adresse} onChange={(e) => setField("adresse", e.target.value)} />
-                                </Field>
-                                <Field label="Gouvernorat" error={errors.gouvernorat}>
-                                    <select value={form.gouvernorat} onChange={(e) => setField("gouvernorat", e.target.value)} disabled={!agencesLoaded}>
-                                        <option value="">Sélectionner...</option>
-                                        {gouvernorats.map((o) => <option key={o} value={o}>{o}</option>)}
-                                    </select>
-                                </Field>
-                                <Field label="Délégation" error={errors.delegation}>
-                                    <select value={form.delegation} onChange={(e) => setField("delegation", e.target.value)} disabled={!form.gouvernorat}>
-                                        <option value="">Sélectionner...</option>
-                                        {delegations.map((o) => <option key={o} value={o}>{o}</option>)}
-                                    </select>
-                                </Field>
-                                <Field label="Code postal" error={errors.codePostal}>
-                                    <input
-                                        type="text"
-                                        maxLength={4}
-                                        value={form.codePostal}
-                                        onChange={(e) => setField("codePostal", e.target.value.replace(/\D/g, ""))}
-                                    />
-                                </Field>
-                                <Field label="Agence la plus proche" error={errors.agence}>
-                                    <input type="text" value={form.agence} readOnly placeholder="Choisir une délégation" />
-                                </Field>
-                            </div>
-                        </div>
+                                        <div className="add-demande-field">
+                                            <label>Intéressé</label>
+                                            <select
+                                                value={form.interesse === null ? "null" : form.interesse ? "true" : "false"}
+                                                onChange={(e) =>
+                                                    setField(
+                                                        "interesse",
+                                                        e.target.value === "null" ? null : e.target.value === "true"
+                                                    )
+                                                }
+                                            >
+                                                <option value="null">Non défini</option>
+                                                <option value="true">Intéressé</option>
+                                                <option value="false">Non intéressé</option>
+                                            </select>
+                                        </div>
 
-                        <div className="add-demande-section add-demande-section-credit">
-                            <h3>Crédit</h3>
-                            <div className="add-demande-grid">
-                                <Field label="Montant de crédit demandé" error={errors.montantDemande}>
-                                    <select value={form.montantDemande} onChange={(e) => setField("montantDemande", e.target.value)}>
-                                        <option value="">Sélectionner...</option>
-                                        {MONTANT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                    </select>
-                                </Field>
-                                <Field label="Utilisation du prêt" error={errors.utilisationPret}>
-                                    <select value={form.utilisationPret} onChange={(e) => setField("utilisationPret", e.target.value)}>
-                                        <option value="">Sélectionner...</option>
-                                        {UTILISATION_PRET_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                                    </select>
-                                </Field>
-                                <Field label="Capacité de remboursement déclarée" error={errors.capaciteRemboursement}>
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        value={form.capaciteRemboursement}
-                                        onChange={(e) => setField("capaciteRemboursement", e.target.value.replace(/\D/g, ""))}
-                                    />
-                                </Field>
-                                <Field label="Durée de prêt souhaitée" error={errors.dureePret}>
-                                    <select value={form.dureePret} onChange={(e) => setField("dureePret", e.target.value)}>
-                                        <option value="">Sélectionner...</option>
-                                        {DUREE_PRET_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                                    </select>
-                                </Field>
+                                        <div className="add-demande-field">
+                                            <label>Joignable</label>
+                                            <select
+                                                value={form.joignable === null ? "null" : form.joignable ? "true" : "false"}
+                                                onChange={(e) =>
+                                                    setField(
+                                                        "joignable",
+                                                        e.target.value === "null" ? null : e.target.value === "true"
+                                                    )
+                                                }
+                                            >
+                                                <option value="null">Non défini</option>
+                                                <option value="true">Joignable</option>
+                                                <option value="false">Non joignable</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="add-demande-section add-demande-section-identity">
+                                    <h3>Identité</h3>
+                                    <div className="add-demande-grid">
+                                        <Field label="Nom de famille" error={errors.nomFamille}>
+                                            <input type="text" value={form.nomFamille} onChange={(e) => setField("nomFamille", e.target.value)} />
+                                        </Field>
+                                        <Field label="Prénom" error={errors.prenom}>
+                                            <input type="text" value={form.prenom} onChange={(e) => setField("prenom", e.target.value)} />
+                                        </Field>
+                                        <Field label="Date de naissance" error={errors.dateNaissance}>
+                                            <input type="date" value={form.dateNaissance} onChange={(e) => setField("dateNaissance", e.target.value)} />
+                                        </Field>
+                                        <Field label="Genre" error={errors.genre}>
+                                            <select value={form.genre} onChange={(e) => setField("genre", e.target.value)}>
+                                                <option value="">Sélectionner...</option>
+                                                {GENRE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="Situation familiale" error={errors.situationFamiliale}>
+                                            <select value={form.situationFamiliale} onChange={(e) => setField("situationFamiliale", e.target.value)}>
+                                                <option value="">Sélectionner...</option>
+                                                {SITUATION_FAMILIALE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="CIN" error={errors.cin}>
+                                            <input
+                                                type="text"
+                                                maxLength={8}
+                                                value={form.cin}
+                                                onChange={(e) => handleCinChange(e.target.value)}
+                                            />
+                                        </Field>
+                                    </div>
+                                </div>
+
+                                <div className="add-demande-section add-demande-section-activity">
+                                    <h3>Activité</h3>
+                                    <div className="add-demande-grid">
+                                        <Field label="Secteur d'activité" error={errors.secteurActivite}>
+                                            <select value={form.secteurActivite} onChange={(e) => setField("secteurActivite", e.target.value)}>
+                                                <option value="">Sélectionner...</option>
+                                                {SECTEURS.map((o) => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="Activité" error={errors.activite}>
+                                            <select
+                                                value={form.activite}
+                                                onChange={(e) => setField("activite", e.target.value)}
+                                                disabled={!form.secteurActivite}
+                                            >
+                                                <option value="">{form.secteurActivite ? "Sélectionner..." : "Choisir un secteur"}</option>
+                                                {activiteOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </Field>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        </div>
+
+                            <div className="add-demande-column">
+                                <div className="add-demande-section add-demande-section-contact">
+                                    <h3>Contact & localisation</h3>
+                                    <div className="add-demande-grid">
+                                        <Field label="N° de téléphone" error={errors.telephone}>
+                                            <input
+                                                type="text"
+                                                maxLength={8}
+                                                value={form.telephone}
+                                                onChange={(e) => setField("telephone", e.target.value.replace(/\D/g, ""))}
+                                            />
+                                        </Field>
+                                        <Field label="Adresse" error={errors.adresse}>
+                                            <input type="text" value={form.adresse} onChange={(e) => setField("adresse", e.target.value)} />
+                                        </Field>
+                                        <Field label="Gouvernorat" error={errors.gouvernorat}>
+                                            <select value={form.gouvernorat} onChange={(e) => setField("gouvernorat", e.target.value)} disabled={!agencesLoaded}>
+                                                <option value="">Sélectionner...</option>
+                                                {gouvernorats.map((o) => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="Délégation" error={errors.delegation}>
+                                            <select value={form.delegation} onChange={(e) => setField("delegation", e.target.value)} disabled={!form.gouvernorat}>
+                                                <option value="">Sélectionner...</option>
+                                                {delegations.map((o) => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="Code postal" error={errors.codePostal}>
+                                            <input
+                                                type="text"
+                                                maxLength={4}
+                                                value={form.codePostal}
+                                                onChange={(e) => setField("codePostal", e.target.value.replace(/\D/g, ""))}
+                                            />
+                                        </Field>
+                                        <Field label="Agence la plus proche" error={errors.agence}>
+                                            <input type="text" value={form.agence} readOnly placeholder="Choisir une délégation" />
+                                        </Field>
+                                    </div>
+                                </div>
+
+                                <div className="add-demande-section add-demande-section-credit">
+                                    <h3>Crédit</h3>
+                                    <div className="add-demande-grid">
+                                        <Field label="Montant de crédit demandé" error={errors.montantDemande}>
+                                            <select value={form.montantDemande} onChange={(e) => setField("montantDemande", e.target.value)}>
+                                                <option value="">Sélectionner...</option>
+                                                {MONTANT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="Utilisation du prêt" error={errors.utilisationPret}>
+                                            <select value={form.utilisationPret} onChange={(e) => setField("utilisationPret", e.target.value)}>
+                                                <option value="">Sélectionner...</option>
+                                                {UTILISATION_PRET_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="Capacité de remboursement déclarée" error={errors.capaciteRemboursement}>
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={form.capaciteRemboursement}
+                                                onChange={(e) => setField("capaciteRemboursement", e.target.value.replace(/\D/g, ""))}
+                                            />
+                                        </Field>
+                                        <Field label="Durée de prêt souhaitée" error={errors.dureePret}>
+                                            <select value={form.dureePret} onChange={(e) => setField("dureePret", e.target.value)}>
+                                                <option value="">Sélectionner...</option>
+                                                {DUREE_PRET_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </Field>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="add-demande-footer">
@@ -481,44 +547,44 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
             </div>
 
             {cinAlert && (
-    <div className="cin-alert-overlay" onClick={() => setCinAlert(null)}>
-        <div
-            className={`cin-alert-modal ${cinAlert.exists ? "cin-alert-modal--existing" : "cin-alert-modal--new"}`}
-            onClick={(e) => e.stopPropagation()}
-            tabIndex={-1}
-        >
-            <div className="cin-alert-header">
-                <span className="cin-alert-badge">
-                    <span className="cin-alert-badge-dot" />
-                    {cinAlert.exists ? "Client existant" : "Nouveau client"}
-                </span>
-                <h3>
-                    {cinAlert.exists
-                        ? "Un dossier existe déjà pour ce CIN"
-                        : "Aucun dossier trouvé pour ce CIN"}
-                </h3>
-                <p>
-                    {cinAlert.exists
-                        ? "Vérifiez qu'il ne s'agit pas d'une demande en double avant de continuer."
-                        : "Vous pouvez poursuivre la création de cette demande."}
-                </p>
-            </div>
+                <div className="cin-alert-overlay" onClick={() => setCinAlert(null)}>
+                    <div
+                        className={`cin-alert-modal ${cinAlert.exists ? "cin-alert-modal--existing" : "cin-alert-modal--new"}`}
+                        onClick={(e) => e.stopPropagation()}
+                        tabIndex={-1}
+                    >
+                        <div className="cin-alert-header">
+                            <span className="cin-alert-badge">
+                                <span className="cin-alert-badge-dot" />
+                                {cinAlert.exists ? "Client existant" : "Nouveau client"}
+                            </span>
+                            <h3>
+                                {cinAlert.exists
+                                    ? "Un dossier existe déjà pour ce CIN"
+                                    : "Aucun dossier trouvé pour ce CIN"}
+                            </h3>
+                            <p>
+                                {cinAlert.exists
+                                    ? "Vérifiez qu'il ne s'agit pas d'une demande en double avant de continuer."
+                                    : "Vous pouvez poursuivre la création de cette demande."}
+                            </p>
+                        </div>
 
-            <div className="cin-alert-cin">
-                <span className="cin-alert-cin-label">CIN</span>
-                <span className="cin-alert-cin-value">{cinAlert.cin}</span>
-            </div>
+                        <div className="cin-alert-cin">
+                            <span className="cin-alert-cin-label">CIN</span>
+                            <span className="cin-alert-cin-value">{cinAlert.cin}</span>
+                        </div>
 
-            <div className="cin-alert-actions">
-                <button type="button" onClick={() => setCinAlert(null)}>
-                    Compris
-                </button>
-            </div>
-        </div>
-    </div>
-)}
+                        <div className="cin-alert-actions">
+                            <button type="button" onClick={() => setCinAlert(null)}>
+                                Compris
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-      
+
         </div>
     );
 };

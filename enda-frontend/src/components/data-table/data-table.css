@@ -1,7 +1,7 @@
 
 .data-table {
     width: 100%;
-    max-height: 640px;
+    max-height: 4000px;
     display: flex;
     flex-direction: column;
     border: 1px solid #E0E2E7;
@@ -340,3 +340,38 @@ cursor: pointer;
     color: #374151;
 }
 
+.status-contact.status-interesse-oui {
+    background: #EFF6FF;
+    border-color: #BFDBFE;
+    color: #2563EB;
+}
+
+.status-contact.status-interesse-non {
+    background: #FEF2F2;
+    border-color: #FECACA;
+    color: #DC2626;
+}
+
+.sortable-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sortable-header:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.sort-icon {
+    flex-shrink: 0;
+}
+
+.sort-icon-neutral {
+    opacity: 0.45;
+}
+
+.sort-icon-active {
+    opacity: 1;
+}

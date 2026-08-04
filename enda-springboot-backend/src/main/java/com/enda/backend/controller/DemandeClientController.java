@@ -63,6 +63,13 @@ public class DemandeClientController {
         return demandeClientService.changerJoignable(id, joignable);
     }
 
+    @PatchMapping("/{id}/interesse")
+    public DemandeClient changerInteresse(
+            @PathVariable UUID id,
+            @RequestBody(required = false) Boolean interesse) {
+        return demandeClientService.changerInteresse(id, interesse);
+    }
+
     @PostMapping
     public DemandeClient creerDemande(@RequestBody Map<String, Object> fields) {
         return demandeClientService.creerDemande(fields);

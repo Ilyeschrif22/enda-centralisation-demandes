@@ -43,15 +43,17 @@ public class DemandeClient {
     private String retourAgence;
     private String verrouillePar;
     private Instant verrouilleDepuis;
+    private Boolean interesse;
+
 
     @Enumerated(EnumType.STRING)
     private Canal canal;
 
     @Column(nullable = false)
-    private Boolean retourCommercial = false;
+    private Boolean contacte = false;
 
     @Column(nullable = false)
-    private Boolean contacte = false;
+    private Boolean valide = false;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

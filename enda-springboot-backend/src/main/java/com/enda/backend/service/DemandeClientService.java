@@ -75,8 +75,12 @@ public class DemandeClientService {
         utilisateur.setDelegation((String) fields.get("delegation"));
         utilisateur.setCodePostal((String) fields.get("codePostal"));
 
-        if (fields.get("dateNaissance") != null) {
-            utilisateur.setDateNaissance(LocalDate.parse((String) fields.get("dateNaissance")));
+        if (fields.get("dateNaissance") != null && !((String) fields.get("dateNaissance")).isBlank()) {
+            try {
+                utilisateur.setDateNaissance(LocalDate.parse((String) fields.get("dateNaissance")));
+            } catch (Exception e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date de naissance invalide: " + fields.get("dateNaissance"));
+            }
         }
 
         utilisateurRepository.save(utilisateur);
@@ -103,8 +107,13 @@ public class DemandeClientService {
             utilisateurRepository.save(utilisateur);
         }
 
-        if (fields.get("typeDemande") != null) {
-            demande.setTypeDemande(TypeDemande.valueOf((String) fields.get("typeDemande")));
+        Object typeDemandeRaw = fields.get("typeDemande");
+        if (typeDemandeRaw != null && !((String) typeDemandeRaw).isBlank()) {
+            try {
+                demande.setTypeDemande(TypeDemande.valueOf((String) typeDemandeRaw));
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type de demande invalide: " + typeDemandeRaw);
+            }
         }
 
         if (fields.get("capaciteRemboursement") != null) {
@@ -118,7 +127,14 @@ public class DemandeClientService {
         }
 
         DemandeClient saved = demandeClientRepository.save(demande);
-        notifierDirecteursSiHorsAge(saved);
+
+        try {
+            notifierDirecteursSiHorsAge(saved);
+        } catch (Exception e) {
+            System.err.println("Echec de la notification hors-âge pour la demande " + saved.getId());
+            e.printStackTrace();
+        }
+
         return saved;
     }
 
@@ -268,7 +284,6 @@ public class DemandeClientService {
             demande.setStatut(StatutDemande.NON_SAISIE);
             demande.setContacte(Boolean.FALSE);
             demande.setJoignable(null);
-            demande.setRetourCommercial(Boolean.FALSE);
             demande.setCanal(prospect.getCanal());
             long demandesExistantes = (cin != null) ? demandeClientRepository.countByUtilisateur_Cin(cin) : 0;
             demande.setNumeroDemande((int) demandesExistantes + 1);
@@ -343,11 +358,18 @@ public class DemandeClientService {
         if (fields.containsKey("dateEmissionCin") && fields.get("dateEmissionCin") != null) {
             utilisateur.setDateEmissionCin(LocalDate.parse((String) fields.get("dateEmissionCin")));
         }
+        if (fields.containsKey("nomFamille")) {
+            utilisateur.setNom((String) fields.get("nomFamille"));
+        }
+        if (fields.containsKey("prenom")) {
+            utilisateur.setPrenom((String) fields.get("prenom"));
+        }
         if (fields.containsKey("nomPrenom")) {
             String[] parts = ((String) fields.get("nomPrenom")).trim().split(" ", 2);
             utilisateur.setNom(parts[0]);
             utilisateur.setPrenom(parts.length > 1 ? parts[1] : "");
         }
+
         if (fields.containsKey("genre")) {
             utilisateur.setGenre((String) fields.get("genre"));
         }
@@ -391,7 +413,6 @@ public class DemandeClientService {
                     && !nouvelleAgence.equals(ancienneAgence);
 
             if (isReassignation) {
-                demande.setRetourCommercial(true);
                 agenceChanged = true;
             }
 
@@ -465,12 +486,13 @@ public class DemandeClientService {
         return demandeClientRepository.save(demande);
     }
 
-    public DemandeClient changerRetourCommercial(UUID id, Boolean retourCommercial) {
+    public DemandeClient changerInteresse(UUID id, Boolean interesse) {
         DemandeClient demande = demandeClientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
-        demande.setRetourCommercial(retourCommercial);
+        demande.setInteresse(interesse);
         return demandeClientRepository.save(demande);
     }
+
 
     public DemandeClient changerContacte(UUID id, Boolean contacte) {
         DemandeClient demande = demandeClientRepository.findById(id)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import StatsCard from "../components/stats-card/stats-card";
 import {
@@ -8,7 +8,7 @@ import {
   ClipboardCheckIcon,
   ClipboardXIcon,
 } from "../components/stats-card/icons";
-import DataTableFilters from "../components/data-table-filters/data-table-filters";
+import DataTableFilters, { initialFilters, applyFilters } from "../components/data-table-filters/data-table-filters";
 import DataTable from "../components/data-table/data-table";
 import Pagination from "../components/pagination/pagination";
 import { useAuth } from "../context/AuthContext";
@@ -19,7 +19,7 @@ const DashboardPage = () => {
   const { leads, onLeadUpdated, onLeadDeleted } = useOutletContext();
   const { user } = useAuth();
 
-  const [filteredLeads, setFilteredLeads] = useState([]);
+  const [filters, setFilters] = useState(initialFilters);
   const [currentPage, setCurrentPage] = useState(1);
 
   const statsLeads = useMemo(() => {
@@ -42,21 +42,24 @@ const DashboardPage = () => {
     if (!userAgence) return [];
 
     return leads.filter((lead) => lead.agence === userAgence);
-}, [leads, user]);
+  }, [leads, user]);
 
-  useEffect(() => {
-    setFilteredLeads(statsLeads);
-  }, [statsLeads]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filteredLeads]);
+ 
+  const filteredLeads = useMemo(
+    () => applyFilters(statsLeads, filters),
+    [statsLeads, filters]
+  );
 
   const sortedLeads = useMemo(() => {
     return [...filteredLeads].sort(
       (a, b) => new Date(b.dateSaisie) - new Date(a.dateSaisie)
     );
   }, [filteredLeads]);
+
+  const handleFilterChange = (next) => {
+    setFilters(next);
+    setCurrentPage(1);
+  };
 
   const totalPages = Math.max(
     1,
@@ -68,11 +71,11 @@ const DashboardPage = () => {
     return sortedLeads.slice(start, start + PAGE_SIZE);
   }, [sortedLeads, currentPage]);
 
-const isDirecteur =
+  const isDirecteur =
     (user?.realm_access?.roles || []).includes("Directeur Régional") ||
     (user?.realm_access?.roles || []).includes("Directeur Agence");
 
-const calculateAge = (dateNaissance) => {
+  const calculateAge = (dateNaissance) => {
     if (!dateNaissance) return null;
     const birth = new Date(dateNaissance);
     const today = new Date();
@@ -80,9 +83,9 @@ const calculateAge = (dateNaissance) => {
     const m = today.getMonth() - birth.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
     return age;
-};
+  };
 
-const stats = useMemo(
+  const stats = useMemo(
     () => {
       const baseStats = [
         {
@@ -91,6 +94,15 @@ const stats = useMemo(
           iconBg: "#FCEDF5",
           value: statsLeads.length,
           label: "Demandes reçues",
+        },
+         {
+          key: "contacted",
+          icon: <PhoneCheckIcon />,
+          iconBg: "#ECFDF5",
+          value: statsLeads.filter(
+            (lead) => lead.contacte === true
+          ).length,
+          label: "Demandes contactées",
         },
         {
           key: "saisie",
@@ -132,28 +144,20 @@ const stats = useMemo(
 
       return [
         ...baseStats,
-        {
-          key: "contacted",
-          icon: <PhoneCheckIcon />,
-          iconBg: "#ECFDF5",
-          value: statsLeads.filter(
-            (lead) => lead.contacte === true
-          ).length,
-          label: "Demandes contactées",
-        },
-        {
-          key: "not-contacted",
-          icon: <PhoneXIcon />,
-          iconBg: "#FEF2F2",
-          value: statsLeads.filter(
-            (lead) => lead.contacte !== true
-          ).length,
-          label: "Demandes non contactées",
-        },
+       ,
+        // {
+        //   key: "not-contacted",
+        //   icon: <PhoneXIcon />,
+        //   iconBg: "#FEF2F2",
+        //   value: statsLeads.filter(
+        //     (lead) => lead.contacte !== true
+        //   ).length,
+        //   label: "Demandes non contactées",
+        // },
       ];
     },
     [statsLeads, isDirecteur]
-);
+  );
 
   return (
     <>
@@ -164,8 +168,8 @@ const stats = useMemo(
       </div>
 
       <DataTableFilters
-        data={statsLeads}
-        onFilteredChange={setFilteredLeads}
+        filters={filters}
+        onFilterChange={handleFilterChange}
       />
 
       <DataTable
