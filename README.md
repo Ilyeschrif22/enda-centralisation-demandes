@@ -264,6 +264,8 @@ docker compose down -v
 ### Champs auto-générés (ne pas envoyer)
 `id`, `dateSaisie`, `numeroDemande`, `typeClient`, `statut`, `canal`, `contacte`
 
+TEST ENDPOINT : https://55c3-2c0f-f698-c101-7d53-2921-f8be-c79f-fe41.ngrok-free.app
+
 <img width="1374" height="713" alt="image" src="https://github.com/user-attachments/assets/d648c7f3-e861-4ad0-9f07-0cb24bc23ad0" />
 
 
