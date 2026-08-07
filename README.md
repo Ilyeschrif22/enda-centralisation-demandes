@@ -220,8 +220,6 @@ Une fois la stack démarrée, les services sont accessibles sur les ports suivan
 | :--- | :--- | :--- |
 | **Frontend UI** | React 19 / Vite | http://localhost:5173 |
 | **Spring Boot API** | Java 17 / Spring Boot 3 | http://localhost:8089 |
-| **Swagger UI (Spring)** | Springdoc | http://localhost:8089/swagger-ui.html |
-| **FastAPI Docs** | Python / FastAPI | http://localhost:8000/docs |
 | **Keycloak IAM Admin** | Keycloak 26 | http://localhost:8180 (Admin: admin/admin) |
 | **Base MySQL** | MySQL 8.4 | localhost:3306 |
 
@@ -260,11 +258,11 @@ docker compose down -v
 | `capaciteRemboursement` | int / string numérique | |
 | `montantDemande` | string | Prioritaire sur `montant` |
 | `montant` | string | Fallback |
+| `canal` | string | |
 
 ### Champs auto-générés (ne pas envoyer)
-`id`, `dateSaisie`, `numeroDemande`, `typeClient`, `statut`, `canal`, `contacte`
+`id`, `dateSaisie`, `numeroDemande`, `typeClient`, `statut`, `contacte`
 
-TEST ENDPOINT : https://55c3-2c0f-f698-c101-7d53-2921-f8be-c79f-fe41.ngrok-free.app
 
 <img width="1374" height="713" alt="image" src="https://github.com/user-attachments/assets/d648c7f3-e861-4ad0-9f07-0cb24bc23ad0" />
 
