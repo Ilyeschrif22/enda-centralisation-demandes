@@ -61,6 +61,18 @@ const CalendarIcon = () => (
 const IdCardIcon = () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 10h2" /><path d="M16 14h2" /><path d="M6.17 15a3 3 0 0 1 5.66 0" /><circle cx="9" cy="11" r="2" /><rect width="20" height="14" x="2" y="5" rx="2" /></svg>
 );
+const HistoryIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 12a9 9 0 1 0 2.6-6.3" />
+        <path d="M3 5v5h5" />
+        <path d="M12 7v5l3 3" />
+    </svg>
+);
+const CloseIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+    </svg>
+);
 
 const InfoRow = ({ icon: Icon, label, value }) => (
     <div className="info-row">
@@ -266,9 +278,96 @@ const CommentsSection = ({ demandeId, currentUser }) => {
     );
 };
 
+const AUDIT_ACTION_LABELS = {
+    CREATION: "Création de la demande",
+    MODIFICATION: "Modification",
+    SUPPRESSION: "Suppression de la demande",
+};
+
+const AUDIT_ACTION_TONES = {
+    CREATION: "green",
+    MODIFICATION: "blue",
+    SUPPRESSION: "red",
+};
+
+const AuditTimelineModal = ({ open, demandeId, onClose }) => {
+    const [entries, setEntries] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (!open || !demandeId) return;
+
+        setLoading(true);
+        setError(null);
+
+        fetch(`${API_BASE}/demandes/${demandeId}/audit`)
+            .then((res) => {
+                if (!res.ok) throw new Error(`Echec (${res.status})`);
+                return res.json();
+            })
+            .then(setEntries)
+            .catch((err) => {
+                console.error("Impossible de charger l'historique:", err);
+                setError("Impossible de charger l'historique de cette demande.");
+            })
+            .finally(() => setLoading(false));
+    }, [open, demandeId]);
+
+    if (!open) return null;
+
+    return (
+        <div className="audit-overlay" onClick={onClose}>
+            <div className="audit-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="audit-modal-header">
+                    <h3><HistoryIcon /> Historique de la demande</h3>
+                    <button type="button" className="audit-modal-close" onClick={onClose}>
+                        <CloseIcon />
+                    </button>
+                </div>
+
+                <div className="audit-modal-body">
+                    {loading ? (
+                        <p className="comment-empty">Chargement...</p>
+                    ) : error ? (
+                        <p className="comment-error">{error}</p>
+                    ) : entries.length === 0 ? (
+                        <p className="comment-empty">Aucun historique disponible.</p>
+                    ) : (
+                        <div className="audit-timeline">
+                            {entries.map((entry) => (
+                                <div key={entry.id} className="audit-timeline-item">
+                                    <div className={`audit-timeline-dot audit-dot-${AUDIT_ACTION_TONES[entry.action] || "default"}`} />
+                                    <div className="audit-timeline-content">
+                                        <div className="audit-timeline-top">
+                                            <Badge tone={AUDIT_ACTION_TONES[entry.action]}>
+                                                {AUDIT_ACTION_LABELS[entry.action] || entry.action}
+                                            </Badge>
+                                            <span className="audit-timeline-date">{formatCommentDate(entry.dateAction)}</span>
+                                        </div>
+                                        <p className="audit-timeline-author">
+                                            {entry.auteurNom || entry.auteurUsername}
+                                        </p>
+                                        {entry.action === "MODIFICATION" && entry.champ && (
+                                            <p className="audit-timeline-detail">
+                                                <strong>{entry.champ}</strong> : {entry.ancienneValeur} → {entry.nouvelleValeur}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande }) => {
     const alertedLeadId = useRef(null);
     const { user } = useAuth();
+    const [showAudit, setShowAudit] = useState(false);
 
     useEffect(() => {
         if (!lead) return;
@@ -306,11 +405,21 @@ const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande 
                 <button type="button" className="btn btn-ghost" onClick={onBack}>
                     <ArrowLeftIcon /> Retour à la liste
                 </button>
-                {!isDirecteur && (
-                    <button type="button" className="btn btn-primary" onClick={onEdit}>
-                        <PencilIcon /> Modifier
+                <div className="lead-profile-toolbar-actions">
+                    <button
+                        type="button"
+                        className="audit-trigger"
+                        title="Voir l'historique de cette demande"
+                        onClick={() => setShowAudit(true)}
+                    >
+                        <HistoryIcon />
                     </button>
-                )}
+                    {!isDirecteur && (
+                        <button type="button" className="btn btn-primary" onClick={onEdit}>
+                            <PencilIcon /> Modifier
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="lead-profile-card lead-profile-header">
@@ -388,9 +497,15 @@ const LeadProfileView = ({ lead, allLeads = [], onBack, onEdit, onSelectDemande 
                     <InfoRow icon={BriefcaseIcon} label="Retour agence" value={lead.retourAgence} />
                 </div>
 
-                
                 <CommentsSection demandeId={lead.id} currentUser={user} />
+
             </div>
+
+            <AuditTimelineModal
+                open={showAudit}
+                demandeId={lead.id}
+                onClose={() => setShowAudit(false)}
+            />
         </div>
     );
 };

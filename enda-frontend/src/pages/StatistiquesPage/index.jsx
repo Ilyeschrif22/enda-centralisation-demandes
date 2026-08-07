@@ -16,6 +16,7 @@ import {
     Funnel,
     LabelList,
 } from "recharts";
+import PageLoader from "../../components/loader/PageLoader";
 import "./statistiques-page.css";
 
 const API_BASE = "http://127.0.0.1:8089";
@@ -78,15 +79,59 @@ const FUNNEL_COLORS = [
 
 const CLIENT_TYPE_COLORS = ["#DE0065", "#0EA5E9"];
 
+const MOIS_LABELS = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
+// Spring/Jackson can serialize a java.time.LocalDate either as an ISO string
+// ("2026-08-07") or, depending on backend ObjectMapper config, as a
+// [year, month, day] array (month 1-indexed). Handle both shapes here.
+// Dates are built from local y/m/d components rather than passed to
+// `new Date(isoString)`, which parses "YYYY-MM-DD" as UTC midnight and can
+// shift the day (and therefore month/year) once read back in local time.
+const parseDateSaisie = (dateSaisie) => {
+    if (!dateSaisie) return null;
+
+    if (Array.isArray(dateSaisie)) {
+        const [year, month, day] = dateSaisie;
+        if (!year || !month || !day) return null;
+        const d = new Date(year, month - 1, day);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    if (typeof dateSaisie === "string") {
+        const match = dateSaisie.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+            const [, year, month, day] = match;
+            const d = new Date(Number(year), Number(month) - 1, Number(day));
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+        const fallback = new Date(dateSaisie);
+        return Number.isNaN(fallback.getTime()) ? null : fallback;
+    }
+
+    return null;
+};
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// Stable "YYYY-MM-DD" key/label built from local components, for grouping
+// and sorting by day (used by the evolution chart).
+const formatDateKey = (date) =>
+    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
 const StatistiquesPage = () => {
-    const [leads, setLeads] = useState([]);
+    const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedYear, setSelectedYear] = useState("all");
+    const [selectedMonth, setSelectedMonth] = useState("all");
 
     useEffect(() => {
         fetch(`${API_BASE}/demandes`)
             .then((res) => res.json())
-            .then(setLeads)
+            .then(setRequests)
             .catch((err) => {
                 console.error(err);
                 setError("Impossible de charger les statistiques.");
@@ -94,11 +139,32 @@ const StatistiquesPage = () => {
             .finally(() => setLoading(false));
     }, []);
 
+    const availableYears = useMemo(() => {
+        const years = new Set();
+        requests.forEach((l) => {
+            const d = parseDateSaisie(l.dateSaisie);
+            if (d) years.add(d.getFullYear());
+        });
+        return Array.from(years).sort((a, b) => b - a);
+    }, [requests]);
+
+    const filteredRequests = useMemo(() => {
+        if (selectedYear === "all" && selectedMonth === "all") return requests;
+
+        return requests.filter((l) => {
+            const d = parseDateSaisie(l.dateSaisie);
+            if (!d) return false;
+            if (selectedYear !== "all" && d.getFullYear() !== Number(selectedYear)) return false;
+            if (selectedMonth !== "all" && d.getMonth() !== Number(selectedMonth)) return false;
+            return true;
+        });
+    }, [requests, selectedYear, selectedMonth]);
+
     const kpis = useMemo(() => {
-        const total = leads.length;
-        const contactes = leads.filter((l) => l.contacte === true).length;
-        const joignables = leads.filter((l) => l.joignable === true).length;
-        const saisies = leads.filter((l) => l.statut && l.statut !== "NON_SAISIE").length;
+        const total = filteredRequests.length;
+        const contactes = filteredRequests.filter((l) => l.contacte === true).length;
+        const joignables = filteredRequests.filter((l) => l.joignable === true).length;
+        const saisies = filteredRequests.filter((l) => l.statut && l.statut !== "NON_SAISIE").length;
 
         const pct = (n) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
@@ -108,13 +174,13 @@ const StatistiquesPage = () => {
             { label: "Taux de joignabilité", value: `${pct(joignables)}%`, sub: `${joignables} / ${total}` },
             { label: "Taux de saisie", value: `${pct(saisies)}%`, sub: `${saisies} / ${total}` },
         ];
-    }, [leads]);
+    }, [filteredRequests]);
 
     const statutData = useMemo(() => {
         const counts = {};
 
-        leads.forEach((lead) => {
-            const key = lead.statut || "NON_SAISIE";
+        filteredRequests.forEach((request) => {
+            const key = request.statut || "NON_SAISIE";
             counts[key] = (counts[key] || 0) + 1;
         });
 
@@ -122,13 +188,13 @@ const StatistiquesPage = () => {
             name: STATUT_LABELS[key] || key,
             value,
         }));
-    }, [leads]);
+    }, [filteredRequests]);
 
     const canalData = useMemo(() => {
         const counts = {};
 
-        leads.forEach((lead) => {
-            const key = lead.canal || "INCONNU";
+        filteredRequests.forEach((request) => {
+            const key = request.canal || "INCONNU";
             counts[key] = (counts[key] || 0) + 1;
         });
 
@@ -136,15 +202,15 @@ const StatistiquesPage = () => {
             name: CANAL_LABELS[key] || key,
             value,
         }));
-    }, [leads]);
+    }, [filteredRequests]);
 
     const regionData = useMemo(() => {
         const counts = {};
 
-        leads.forEach((lead) => {
+        filteredRequests.forEach((request) => {
             const key =
-                lead.utilisateur?.region ||
-                lead.utilisateur?.gouvernorat ||
+                request.utilisateur?.region ||
+                request.utilisateur?.gouvernorat ||
                 "Non renseignée";
 
             counts[key] = (counts[key] || 0) + 1;
@@ -156,24 +222,24 @@ const StatistiquesPage = () => {
                 value,
             }))
             .sort((a, b) => b.value - a.value);
-    }, [leads]);
+    }, [filteredRequests]);
 
     const funnelData = useMemo(() => {
-        const total = leads.length;
+        const total = filteredRequests.length;
 
-        const contactes = leads.filter(
+        const contactes = filteredRequests.filter(
             (l) => l.contacte === true
         ).length;
 
-        const joignables = leads.filter(
+        const joignables = filteredRequests.filter(
             (l) => l.joignable === true
         ).length;
 
-        const interesses = leads.filter(
+        const interesses = filteredRequests.filter(
             (l) => l.interesse === true
         ).length;
 
-        const saisies = leads.filter(
+        const saisies = filteredRequests.filter(
             (l) => l.statut && l.statut !== "NON_SAISIE"
         ).length;
 
@@ -204,28 +270,29 @@ const StatistiquesPage = () => {
                 fill: FUNNEL_COLORS[4],
             },
         ];
-    }, [leads]);
+    }, [filteredRequests]);
 
     const evolutionData = useMemo(() => {
         const counts = {};
 
-        leads.forEach((lead) => {
-            if (!lead.dateSaisie) return;
-            const key = lead.dateSaisie;
+        filteredRequests.forEach((request) => {
+            const d = parseDateSaisie(request.dateSaisie);
+            if (!d) return;
+            const key = formatDateKey(d);
             counts[key] = (counts[key] || 0) + 1;
         });
 
         return Object.entries(counts)
             .map(([date, value]) => ({ date, value }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
             .slice(-30);
-    }, [leads]);
+    }, [filteredRequests]);
 
     const agenceData = useMemo(() => {
         const counts = {};
 
-        leads.forEach((lead) => {
-            const key = lead.agence || "Non affectée";
+        filteredRequests.forEach((request) => {
+            const key = request.agence || "Non affectée";
             counts[key] = (counts[key] || 0) + 1;
         });
 
@@ -233,13 +300,13 @@ const StatistiquesPage = () => {
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 8);
-    }, [leads]);
+    }, [filteredRequests]);
 
     const typeDemandeData = useMemo(() => {
         const counts = {};
 
-        leads.forEach((lead) => {
-            const key = lead.typeDemande || "Non renseigné";
+        filteredRequests.forEach((request) => {
+            const key = request.typeDemande || "Non renseigné";
             counts[key] = (counts[key] || 0) + 1;
         });
 
@@ -247,13 +314,13 @@ const StatistiquesPage = () => {
             name: TYPE_DEMANDE_LABELS[key] || key,
             value,
         }));
-    }, [leads]);
+    }, [filteredRequests]);
 
     const clientTypeData = useMemo(() => {
         const counts = {};
 
-        leads.forEach((lead) => {
-            const key = lead.typeClient || "Non renseigné";
+        filteredRequests.forEach((request) => {
+            const key = request.typeClient || "Non renseigné";
             counts[key] = (counts[key] || 0) + 1;
         });
 
@@ -261,39 +328,39 @@ const StatistiquesPage = () => {
             name: name.charAt(0).toUpperCase() + name.slice(1),
             value,
         }));
-    }, [leads]);
+    }, [filteredRequests]);
 
 
     const montantData = useMemo(() => {
-        const montants = leads
-            .map((l) => parseFloat(l.montant))
+        const montants = filteredRequests
+            .map((request) => parseFloat(request.montant))
             .filter((m) => !Number.isNaN(m));
 
         const total = montants.reduce((sum, m) => sum + m, 0);
         const moyenne = montants.length > 0 ? total / montants.length : 0;
 
         return { total, moyenne, count: montants.length };
-    }, [leads]);
+    }, [filteredRequests]);
 
     const interesseData = useMemo(() => {
         const counts = { "Intéressé": 0, "Non intéressé": 0, "Non renseigné": 0 };
 
-        leads.forEach((lead) => {
-            if (lead.interesse === true) counts["Intéressé"]++;
-            else if (lead.interesse === false) counts["Non intéressé"]++;
+        filteredRequests.forEach((request) => {
+            if (request.interesse === true) counts["Intéressé"]++;
+            else if (request.interesse === false) counts["Non intéressé"]++;
             else counts["Non renseigné"]++;
         });
 
         return Object.entries(counts)
             .filter(([, value]) => value > 0)
             .map(([name, value]) => ({ name, value }));
-    }, [leads]);
+    }, [filteredRequests]);
 
     const activiteData = useMemo(() => {
         const counts = {};
 
-        leads.forEach((lead) => {
-            const key = lead.activite || "Non renseignée";
+        filteredRequests.forEach((request) => {
+            const key = request.activite || "Non renseignée";
             counts[key] = (counts[key] || 0) + 1;
         });
 
@@ -301,14 +368,10 @@ const StatistiquesPage = () => {
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 8);
-    }, [leads]);
+    }, [filteredRequests]);
 
     if (loading) {
-        return (
-            <div className="stats-page-loading">
-                Chargement des statistiques...
-            </div>
-        );
+        return <PageLoader message="Chargement des statistiques..." />;
     }
 
     return (
@@ -319,7 +382,29 @@ const StatistiquesPage = () => {
                 </div>
             )}
 
-          
+            <div className="stats-filters">
+                <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="stats-filter-select"
+                >
+                    <option value="all">Toutes les années</option>
+                    {availableYears.map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                    ))}
+                </select>
+
+                <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="stats-filter-select"
+                >
+                    <option value="all">Tous les mois</option>
+                    {MOIS_LABELS.map((m, i) => (
+                        <option key={m} value={i}>{m}</option>
+                    ))}
+                </select>
+            </div>
 
             <div className="stats-charts-grid">
 

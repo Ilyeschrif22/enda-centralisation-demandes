@@ -1,11 +1,18 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../components/sidebar/sidebar";
 import Navbar from "../components/navbar/navbar";
 import AddDemandeModal from "../components/add-demande/add-demande-modal";
+import PageLoader from "../components/loader/PageLoader";
 import "../App.css";
 
-const mapDemandeToLead = (demande) => ({
+const API_BASE = "http://127.0.0.1:8089";
+
+// How often to silently re-sync with the backend so changes made by other
+// users in other sessions show up here without a manual refresh.
+const POLL_INTERVAL_MS = 1000;
+
+const mapDemandeToRequest = (demande) => ({
   ...demande,
   nomPrenom: `${demande.utilisateur?.nom || ""} ${demande.utilisateur?.prenom || ""}`.trim(),
   telephone: demande.utilisateur?.telephone || "",
@@ -18,51 +25,110 @@ const mapDemandeToLead = (demande) => ({
 });
 
 const Layout = () => {
-  const [leads, setLeads] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetch("http://127.0.0.1:8089/demandes")
+  const pollInFlight = useRef(false);
+
+  const fetchRequests = useCallback(({ silent = false } = {}) => {
+    if (silent) {
+      if (pollInFlight.current) return Promise.resolve();
+      pollInFlight.current = true;
+    }
+
+    return fetch(`${API_BASE}/demandes`)
       .then((res) => res.json())
-      .then((data) => setLeads(data.map(mapDemandeToLead)))
+      .then((data) => setRequests(data.map(mapDemandeToRequest)))
       .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (silent) pollInFlight.current = false;
+      });
   }, []);
 
-  const handleLeadUpdated = (updatedLead) => {
-    const flattened = mapDemandeToLead(updatedLead);
+  // Initial load
+  useEffect(() => {
+    fetchRequests().finally(() => setLoading(false));
+  }, [fetchRequests]);
 
-    setLeads((prev) => {
-      const exists = prev.some((lead) => lead.id === flattened.id);
+  useEffect(() => {
+    let intervalId = null;
+
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = setInterval(() => {
+        fetchRequests({ silent: true });
+      }, POLL_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchRequests({ silent: true });
+        startPolling();
+      }
+    };
+
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchRequests]);
+
+  const handleRequestUpdated = (updatedRequest) => {
+    const flattened = mapDemandeToRequest(updatedRequest);
+
+    setRequests((prev) => {
+      const exists = prev.some((request) => request.id === flattened.id);
 
       if (!exists) {
         return [flattened, ...prev];
       }
 
-      return prev.map((lead) =>
-        lead.id === flattened.id
-          ? { ...lead, ...flattened }
-          : lead
+      return prev.map((request) =>
+        request.id === flattened.id
+          ? { ...request, ...flattened }
+          : request
       );
     });
   };
 
-  const handleLeadDeleted = (deletedId) => {
-    setLeads((prev) => prev.filter((lead) => lead.id !== deletedId));
+  const handleRequestDeleted = (deletedId) => {
+    setRequests((prev) => prev.filter((request) => request.id !== deletedId));
   };
 
   const handleDemandeCreated = (newDemande) => {
-    const flattened = mapDemandeToLead(newDemande);
-
-    setLeads((prev) => [flattened, ...prev]);
-
+    // Optimistic insert so the modal can close immediately and the table
+    // reflects the new row without waiting on a round trip.
+    const flattened = mapDemandeToRequest(newDemande);
+    setRequests((prev) => [flattened, ...prev.filter((r) => r.id !== flattened.id)]);
     setIsAddModalOpen(false);
+
+    // The backend may silently replace an existing same-CIN/same-day demande
+    // (delete + recreate) when creating this one. Refetch the authoritative
+    // list right after so the table is guaranteed to match the server exactly.
+    setRefreshing(true);
+    fetchRequests().finally(() => setRefreshing(false));
   };
 
   if (loading) {
-    return <div>Chargement...</div>;
+    return <PageLoader message="Connexion en cours..." />;
   }
 
   return (
@@ -79,10 +145,15 @@ const Layout = () => {
           <main className="content">
             <Outlet
               context={{
-                leads,
-                onLeadUpdated: handleLeadUpdated,
-                onLeadDeleted: handleLeadDeleted,
+                requests,
+                refreshing,
+                onRequestUpdated: handleRequestUpdated,
+                onRequestDeleted: handleRequestDeleted,
                 onAddDemande: () => setIsAddModalOpen(true),
+                onRefreshRequests: () => {
+                  setRefreshing(true);
+                  fetchRequests().finally(() => setRefreshing(false));
+                },
               }}
             />
           </main>

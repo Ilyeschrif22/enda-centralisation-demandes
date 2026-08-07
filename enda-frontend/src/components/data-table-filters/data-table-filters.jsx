@@ -1,5 +1,8 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { useAuth } from "../../context/AuthContext";
 import './data-table-filters.css';
+
+const API_BASE = "http://127.0.0.1:8089";
 
 const ACTIVITES = ["Agriculture et Elevage", "Artisanat", "Commerce", "Production", "Autres"];
 const CANAUX = ["FACEBOOK", "WHATSAPP", "WEB", "TELEPHONE", "AGENCE"];
@@ -64,8 +67,6 @@ const REGIONS = [
     "Sahel",
     "Cap Bon",
 ];
-
-const SAVED_FILTERS_KEY = "dataTable.savedFilters";
 
 const formatDate = (isoValue) => {
     if (!isoValue) return "";
@@ -182,33 +183,29 @@ export const applyFilters = (data, filters) => {
     });
 };
 
-const loadSavedFilters = () => {
-    try {
-        const raw = localStorage.getItem(SAVED_FILTERS_KEY);
-        return raw ? JSON.parse(raw) : [];
-    } catch {
-        return [];
-    }
-};
-
-const persistSavedFilters = (list) => {
-    try {
-        localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list));
-    } catch {
-    }
-};
-
 const DataTableFilters = ({ filters, onFilterChange }) => {
+    const { user } = useAuth();
+    const keycloakId = user?.sub;
 
     const [savedFilters, setSavedFilters] = useState([]);
     const [activeSavedId, setActiveSavedId] = useState("");
     const [showSaveForm, setShowSaveForm] = useState(false);
     const [saveName, setSaveName] = useState("");
+    const [savingError, setSavingError] = useState(null);
     const saveInputRef = useRef(null);
 
+    const fetchSavedFilters = useCallback(() => {
+        if (!keycloakId) return;
+
+        fetch(`${API_BASE}/saved-filters?keycloakId=${encodeURIComponent(keycloakId)}`)
+            .then((res) => res.json())
+            .then(setSavedFilters)
+            .catch((err) => console.error("Erreur chargement filtres enregistrés:", err));
+    }, [keycloakId]);
+
     useEffect(() => {
-        setSavedFilters(loadSavedFilters());
-    }, []);
+        fetchSavedFilters();
+    }, [fetchSavedFilters]);
 
     useEffect(() => {
         if (showSaveForm) {
@@ -230,26 +227,40 @@ const DataTableFilters = ({ filters, onFilterChange }) => {
 
     const openSaveForm = () => {
         setSaveName("");
+        setSavingError(null);
         setShowSaveForm(true);
     };
 
     const cancelSaveForm = () => {
         setShowSaveForm(false);
         setSaveName("");
+        setSavingError(null);
     };
 
     const confirmSave = () => {
         const name = saveName.trim();
-        if (!name) return;
+        if (!name || !keycloakId) return;
 
-        const newEntry = { id: `${Date.now()}`, name, filters };
-        const next = [...savedFilters, newEntry];
-
-        setSavedFilters(next);
-        persistSavedFilters(next);
-        setActiveSavedId(newEntry.id);
-        setShowSaveForm(false);
-        setSaveName("");
+        fetch(`${API_BASE}/saved-filters`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, keycloakId, filters }),
+        })
+            .then((res) => {
+                if (!res.ok) throw new Error("Échec de l'enregistrement");
+                return res.json();
+            })
+            .then((created) => {
+                setSavedFilters((prev) => [...prev, created]);
+                setActiveSavedId(created.id);
+                setShowSaveForm(false);
+                setSaveName("");
+                setSavingError(null);
+            })
+            .catch((err) => {
+                console.error(err);
+                setSavingError("Erreur lors de l'enregistrement.");
+            });
     };
 
     const handleSaveKeyDown = (e) => {
@@ -265,15 +276,25 @@ const DataTableFilters = ({ filters, onFilterChange }) => {
         setActiveSavedId(id);
         if (!id) return;
         const saved = savedFilters.find((f) => f.id === id);
-        if (saved) onFilterChange(saved.filters);
+        if (saved) onFilterChange({ ...initialFilters, ...saved.filters });
     };
 
-    const deleteSaved = (id) => {
-        const next = savedFilters.filter((f) => f.id !== id);
-        setSavedFilters(next);
-        persistSavedFilters(next);
-        if (activeSavedId === id) setActiveSavedId("");
-    };
+   const deleteSaved = (id) => {
+    if (!keycloakId) return;
+
+    fetch(`${API_BASE}/saved-filters/${id}?keycloakId=${encodeURIComponent(keycloakId)}`, {
+        method: "DELETE",
+    })
+        .then((res) => {
+            if (res.status === 404) {
+                throw new Error("Filtre introuvable ou déjà supprimé (vérifiez keycloakId).");
+            }
+            if (!res.ok) throw new Error("Échec de la suppression");
+            setSavedFilters((prev) => prev.filter((f) => f.id !== id));
+            if (activeSavedId === id) setActiveSavedId("");
+        })
+        .catch((err) => console.error(err));
+};
 
     return (
         <div className="data-table-filters">
@@ -316,6 +337,7 @@ const DataTableFilters = ({ filters, onFilterChange }) => {
                         <button type="button" className="save-filter-cancel" onClick={cancelSaveForm}>
                             Annuler
                         </button>
+                        {savingError && <span className="save-filter-error">{savingError}</span>}
                     </div>
                 ) : (
                     <button
@@ -393,7 +415,7 @@ const DataTableFilters = ({ filters, onFilterChange }) => {
 
             <div className="data-table-filters-row">
                 <div className="filter-field">
-                    <label>Statut (dlf)</label>
+                    <label>Statut (dfla)</label>
                     <select value={filters.statut} onChange={(e) => update("statut", e.target.value)}>
                         <option value="">Tous</option>
                         {STATUT_OPTIONS.map((option) => (
@@ -433,7 +455,7 @@ const DataTableFilters = ({ filters, onFilterChange }) => {
                 </div>
 
                 <div className="filter-field filter-field-range">
-                    <label>Date de création</label>
+                    <label>Date de saisie</label>
                     <div className="filter-range">
                         <DateField
                             value={filters.dateFrom}

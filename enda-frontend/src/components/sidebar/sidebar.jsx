@@ -21,7 +21,7 @@ const NAV_SECTIONS = [
                 ),
             },
             {
-                key: "leads",
+                key: "requests",
                 label: "Demandes",
                 path: "/demandes",
                 icon: (
@@ -144,7 +144,7 @@ const Sidebar = () => {
                         key={section.title ?? i}
                     >
                         {section.title && <span className="sidebar-section-title">{section.title}</span>}
-                        <ul className="sidebar-list">
+                        <ul className="sidebar-list" id={`sidebar-sec-${i}`}>
                             {section.items
                                 .filter((item) => !["agences", "users"].includes(item.key) || isAdmin)
                                 .map((item) => (
@@ -152,6 +152,7 @@ const Sidebar = () => {
                                         {item.key === "logout" ? (
                                             <button
                                                 type="button"
+                                                id={item.key}
                                                 className="sidebar-logout-btn"
                                                 onClick={logout}
                                             >
@@ -160,6 +161,7 @@ const Sidebar = () => {
                                             </button>
                                         ) : (
                                             <NavLink
+                                                id={item.key}
                                                 to={item.path}
                                                 className={({ isActive }) => (isActive ? "active" : "")}
                                                 end={item.path === "/"}

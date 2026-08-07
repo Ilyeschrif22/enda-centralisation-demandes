@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import AddAgenceModal from "../components/add-agence-modal/add-agence-modal";
-import AgencesTable from "../components/agences-table/agences-table";
-import Pagination from "../components/pagination/pagination";
-import "../components/data-table-filters/data-table-filters.css";
+import AddAgenceModal from "../../components/add-agence-modal/add-agence-modal";
+import AgencesTable from "../../components/agences-table/agences-table";
+import Pagination from "../../components/pagination/pagination";
+import PageLoader from "../../components/loader/PageLoader";
+import "../../components/data-table-filters/data-table-filters.css";
+import "./page-layout.css";
 
 const API_BASE = "http://127.0.0.1:8089";
 const PAGE_SIZE = 10;
@@ -102,6 +104,10 @@ const AgencesPage = () => {
     const handleDeleted = (id) => {
         setAgences((prev) => prev.filter((a) => a.id !== id));
     };
+
+    if (loading) {
+        return <PageLoader message="Chargement des agences..." />;
+    }
 
     return (
         <>

@@ -67,35 +67,5 @@ body,
     padding: 16px 24px 0;
 }
 
-.content-header {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    min-height: 40px;
-    margin-bottom: 14px;
-}
-
-.content-header .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 38px;
-    padding: 0 16px;
-    border: 0;
-    border-radius: 6px;
-    color: #fff;
-    background: var(--color-primary);
-    box-shadow: none;
-    font-size: 12px;
-}
-
-.content-header .btn-primary:hover,
-.content-header .btn-primary:focus,
-.content-header .btn-primary:focus-visible {
-    outline: none;
-    color: #fff;
-    background: var(--color-primary);
-    box-shadow: none;
-}
 
 

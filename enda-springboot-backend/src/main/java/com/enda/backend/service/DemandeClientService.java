@@ -32,6 +32,8 @@ public class DemandeClientService {
     private static final int AGE_MAX = 65;
     private static final String ROLE_DIRECTEUR_AGENCE = "Directeur Agence";
     private static final String ROLE_DIRECTEUR_REGIONAL = "Directeur Régional";
+    private static final String SYSTEM_USERNAME = "system";
+    private static final String SYSTEM_NOM = "Système";
 
     private final DemandeClientRepository demandeClientRepository;
     private final UtilisateurRepository utilisateurRepository;
@@ -39,6 +41,7 @@ public class DemandeClientService {
     private final AgenceRepository agenceRepository;
     private final NotificationService notificationService;
     private final AppUserRepository appUserRepository;
+    private final AuditService auditService;
 
     public List<DemandeClient> findAll() {
         return demandeClientRepository.findAll();
@@ -49,11 +52,35 @@ public class DemandeClientService {
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
     }
 
+
     public DemandeClient creerDemande(Map<String, Object> fields) {
+        return creerDemande(fields, SYSTEM_USERNAME, SYSTEM_NOM);
+    }
+
+    public DemandeClient creerDemande(Map<String, Object> fields, String username, String nomUtilisateur) {
 
         String cin = normalizeCin((String) fields.get("cin"));
 
-        long demandesExistantes = (cin != null) ? demandeClientRepository.countByUtilisateur_Cin(cin) : 0;
+        List<DemandeClient> demandesExistantesList = (cin != null)
+                ? new java.util.ArrayList<>(demandeClientRepository.findByUtilisateur_CinOrderByNumeroDemande(cin))
+                : new java.util.ArrayList<>();
+
+
+        if (!demandesExistantesList.isEmpty()) {
+            DemandeClient derniereDemande = demandesExistantesList.get(demandesExistantesList.size() - 1);
+            if (LocalDate.now().equals(derniereDemande.getDateSaisie())) {
+                try {
+                    auditService.logSuppression(derniereDemande.getId(), username, nomUtilisateur);
+                } catch (Exception e) {
+                    System.err.println("Echec de l'écriture de l'audit (suppression pour remplacement même jour) pour la demande " + derniereDemande.getId());
+                    e.printStackTrace();
+                }
+                demandeClientRepository.deleteById(derniereDemande.getId());
+                demandesExistantesList.remove(demandesExistantesList.size() - 1);
+            }
+        }
+
+        long demandesExistantes = demandesExistantesList.size();
 
         String telephone = (String) fields.get("telephone");
 
@@ -75,11 +102,14 @@ public class DemandeClientService {
         utilisateur.setDelegation((String) fields.get("delegation"));
         utilisateur.setCodePostal((String) fields.get("codePostal"));
 
-        if (fields.get("dateNaissance") != null && !((String) fields.get("dateNaissance")).isBlank()) {
+        Object dateNaissanceRaw = fields.get("dateNaissance");
+        if (dateNaissanceRaw != null && !((String) dateNaissanceRaw).isBlank()) {
             try {
-                utilisateur.setDateNaissance(LocalDate.parse((String) fields.get("dateNaissance")));
+                utilisateur.setDateNaissance(LocalDate.parse((String) dateNaissanceRaw));
             } catch (Exception e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date de naissance invalide: " + fields.get("dateNaissance"));
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Date de naissance invalide: " + dateNaissanceRaw
+                );
             }
         }
 
@@ -112,7 +142,9 @@ public class DemandeClientService {
             try {
                 demande.setTypeDemande(TypeDemande.valueOf((String) typeDemandeRaw));
             } catch (IllegalArgumentException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type de demande invalide: " + typeDemandeRaw);
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Type de demande invalide: " + typeDemandeRaw
+                );
             }
         }
 
@@ -126,7 +158,21 @@ public class DemandeClientService {
             demande.setMontant((String) fields.get("montant"));
         }
 
-        DemandeClient saved = demandeClientRepository.save(demande);
+        DemandeClient saved;
+        try {
+            saved = demandeClientRepository.save(demande);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Contrainte de données violée lors de la création de la demande"
+            );
+        }
+
+        try {
+            auditService.logCreation(saved.getId(), username, nomUtilisateur);
+        } catch (Exception e) {
+            System.err.println("Echec de l'écriture de l'audit (création) pour la demande " + saved.getId());
+            e.printStackTrace();
+        }
 
         try {
             notifierDirecteursSiHorsAge(saved);
@@ -168,6 +214,14 @@ public class DemandeClientService {
         return Period.between(dateNaissance, LocalDate.now()).getYears();
     }
 
+    private String normalizeRegion(String region) {
+        if (region == null) {
+            return "";
+        }
+        String normalized = java.text.Normalizer.normalize(region.trim(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return normalized.toUpperCase();
+    }
 
     private void notifierDirecteursSiHorsAge(DemandeClient demande) {
         if (demande.getUtilisateur() == null || demande.getAgence() == null || demande.getAgence().isBlank()) {
@@ -208,9 +262,12 @@ public class DemandeClientService {
 
         String region = demande.getUtilisateur().getRegion();
         if (region != null && !region.isBlank()) {
-            List<AppUser> directeursRegion = appUserRepository.findByRegionAndRolesContaining(
-                    region, ROLE_DIRECTEUR_REGIONAL
-            );
+            String regionNormalisee = normalizeRegion(region);
+
+            List<AppUser> directeursRegion = appUserRepository.findByRolesContaining(ROLE_DIRECTEUR_REGIONAL)
+                    .stream()
+                    .filter(directeur -> regionNormalisee.equals(normalizeRegion(directeur.getRegion())))
+                    .toList();
 
             for (AppUser directeur : directeursRegion) {
                 notificationService.create(
@@ -297,7 +354,20 @@ public class DemandeClientService {
 
             try {
                 DemandeClient saved = demandeClientRepository.save(demande);
-                notifierDirecteursSiHorsAge(saved);
+
+                try {
+                    auditService.logCreation(saved.getId(), "prospect-import", "Import prospect (auto)");
+                } catch (Exception e) {
+                    System.err.println("Echec de l'écriture de l'audit (import) pour la demande " + saved.getId());
+                    e.printStackTrace();
+                }
+
+                try {
+                    notifierDirecteursSiHorsAge(saved);
+                } catch (Exception e) {
+                    System.err.println("Echec de la notification hors-âge (import prospect) pour la demande " + saved.getId());
+                    e.printStackTrace();
+                }
             } catch (DataIntegrityViolationException e) {
 
             }
@@ -329,13 +399,22 @@ public class DemandeClientService {
                     utilisateurRepository.save(utilisateur);
                 }
                 demandeClientRepository.save(demande);
-                notifierDirecteursSiHorsAge(demande);
+                try {
+                    notifierDirecteursSiHorsAge(demande);
+                } catch (Exception e) {
+                    System.err.println("Echec de la notification hors-âge (remplissage agence) pour la demande " + demande.getId());
+                    e.printStackTrace();
+                }
             }
         }
     }
 
-
+    // Legacy signature kept so existing controller call sites keep compiling.
     public DemandeClient updateFields(UUID id, Map<String, Object> fields) {
+        return updateFields(id, fields, SYSTEM_USERNAME, SYSTEM_NOM);
+    }
+
+    public DemandeClient updateFields(UUID id, Map<String, Object> fields, String username, String nomUtilisateur) {
 
         DemandeClient demande = demandeClientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
@@ -345,47 +424,96 @@ public class DemandeClientService {
         boolean dateNaissanceChanged = false;
 
         if (fields.containsKey("telephone")) {
-            utilisateur.setTelephone((String) fields.get("telephone"));
+            String oldValue = utilisateur.getTelephone();
+            String newValue = (String) fields.get("telephone");
+            utilisateur.setTelephone(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Téléphone", oldValue, newValue);
         }
 
         if (fields.containsKey("adresseDomicile")) {
-            utilisateur.setAdresseDomicile((String) fields.get("adresseDomicile"));
+            String oldValue = utilisateur.getAdresseDomicile();
+            String newValue = (String) fields.get("adresseDomicile");
+            utilisateur.setAdresseDomicile(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Adresse domicile", oldValue, newValue);
         }
         if (fields.containsKey("dateNaissance") && fields.get("dateNaissance") != null) {
-            utilisateur.setDateNaissance(LocalDate.parse((String) fields.get("dateNaissance")));
-            dateNaissanceChanged = true;
+            LocalDate oldValue = utilisateur.getDateNaissance();
+            try {
+                LocalDate newValue = LocalDate.parse((String) fields.get("dateNaissance"));
+                utilisateur.setDateNaissance(newValue);
+                auditService.logChampSiModifie(id, username, nomUtilisateur, "Date de naissance", oldValue, newValue);
+                dateNaissanceChanged = true;
+            } catch (Exception e) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Date de naissance invalide: " + fields.get("dateNaissance")
+                );
+            }
         }
         if (fields.containsKey("dateEmissionCin") && fields.get("dateEmissionCin") != null) {
-            utilisateur.setDateEmissionCin(LocalDate.parse((String) fields.get("dateEmissionCin")));
+            LocalDate oldValue = utilisateur.getDateEmissionCin();
+            try {
+                LocalDate newValue = LocalDate.parse((String) fields.get("dateEmissionCin"));
+                utilisateur.setDateEmissionCin(newValue);
+                auditService.logChampSiModifie(id, username, nomUtilisateur, "Date d'émission CIN", oldValue, newValue);
+            } catch (Exception e) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Date d'émission CIN invalide: " + fields.get("dateEmissionCin")
+                );
+            }
         }
         if (fields.containsKey("nomFamille")) {
-            utilisateur.setNom((String) fields.get("nomFamille"));
+            String oldValue = utilisateur.getNom();
+            String newValue = (String) fields.get("nomFamille");
+            utilisateur.setNom(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Nom", oldValue, newValue);
         }
         if (fields.containsKey("prenom")) {
-            utilisateur.setPrenom((String) fields.get("prenom"));
+            String oldValue = utilisateur.getPrenom();
+            String newValue = (String) fields.get("prenom");
+            utilisateur.setPrenom(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Prénom", oldValue, newValue);
         }
         if (fields.containsKey("nomPrenom")) {
             String[] parts = ((String) fields.get("nomPrenom")).trim().split(" ", 2);
+            String oldNom = utilisateur.getNom();
+            String oldPrenom = utilisateur.getPrenom();
             utilisateur.setNom(parts[0]);
             utilisateur.setPrenom(parts.length > 1 ? parts[1] : "");
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Nom", oldNom, parts[0]);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Prénom", oldPrenom, parts.length > 1 ? parts[1] : "");
         }
 
         if (fields.containsKey("genre")) {
-            utilisateur.setGenre((String) fields.get("genre"));
+            String oldValue = utilisateur.getGenre();
+            String newValue = (String) fields.get("genre");
+            utilisateur.setGenre(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Genre", oldValue, newValue);
         }
         if (fields.containsKey("situationFamiliale")) {
-            utilisateur.setSituationFamiliale((String) fields.get("situationFamiliale"));
+            String oldValue = utilisateur.getSituationFamiliale();
+            String newValue = (String) fields.get("situationFamiliale");
+            utilisateur.setSituationFamiliale(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Situation familiale", oldValue, newValue);
         }
         if (fields.containsKey("gouvernorat")) {
-            utilisateur.setGouvernorat((String) fields.get("gouvernorat"));
+            String oldValue = utilisateur.getGouvernorat();
+            String newValue = (String) fields.get("gouvernorat");
+            utilisateur.setGouvernorat(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Gouvernorat", oldValue, newValue);
             gouvernoratOuDelegationChange = true;
         }
         if (fields.containsKey("delegation")) {
-            utilisateur.setDelegation((String) fields.get("delegation"));
+            String oldValue = utilisateur.getDelegation();
+            String newValue = (String) fields.get("delegation");
+            utilisateur.setDelegation(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Délégation", oldValue, newValue);
             gouvernoratOuDelegationChange = true;
         }
         if (fields.containsKey("codePostal")) {
-            utilisateur.setCodePostal((String) fields.get("codePostal"));
+            String oldValue = utilisateur.getCodePostal();
+            String newValue = (String) fields.get("codePostal");
+            utilisateur.setCodePostal(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Code postal", oldValue, newValue);
         }
 
         utilisateurRepository.save(utilisateur);
@@ -393,11 +521,24 @@ public class DemandeClientService {
         fields.remove("statut");
 
         if (fields.containsKey("typeDemande") && fields.get("typeDemande") != null) {
-            demande.setTypeDemande(TypeDemande.valueOf((String) fields.get("typeDemande")));
+            Object typeDemandeRaw = fields.get("typeDemande");
+            TypeDemande oldValue = demande.getTypeDemande();
+            try {
+                TypeDemande newValue = TypeDemande.valueOf((String) typeDemandeRaw);
+                demande.setTypeDemande(newValue);
+                auditService.logChampSiModifie(id, username, nomUtilisateur, "Type de demande", oldValue, newValue);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Type de demande invalide: " + typeDemandeRaw
+                );
+            }
             fields.remove("typeDemande");
         }
         if (fields.containsKey("capaciteRemboursement")) {
-            demande.setCapaciteRemboursement(toInteger(fields.get("capaciteRemboursement")));
+            Integer oldValue = demande.getCapaciteRemboursement();
+            Integer newValue = toInteger(fields.get("capaciteRemboursement"));
+            demande.setCapaciteRemboursement(newValue);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Capacité de remboursement", oldValue, newValue);
             fields.remove("capaciteRemboursement");
         }
 
@@ -416,6 +557,8 @@ public class DemandeClientService {
                 agenceChanged = true;
             }
 
+            auditService.logChampSiModifie(id, username, nomUtilisateur, "Agence", ancienneAgence, nouvelleAgence);
+
             String regionFromAgence = getRegionByAgence(nouvelleAgence);
             if (regionFromAgence != null) {
                 utilisateur.setRegion(regionFromAgence);
@@ -423,23 +566,69 @@ public class DemandeClientService {
             }
         }
 
+        // Snapshot remaining writable demande fields before the generic BeanWrapper
+        // assignment below, so we can diff and log each one that actually changed.
         BeanWrapper beanWrapper = new BeanWrapperImpl(demande);
+        Map<String, Object> snapshotAvant = new java.util.HashMap<>();
+        fields.forEach((key, value) -> {
+            if (beanWrapper.isWritableProperty(key)) {
+                snapshotAvant.put(key, beanWrapper.getPropertyValue(key));
+            }
+        });
+
         fields.forEach((key, value) -> {
             if (beanWrapper.isWritableProperty(key)) {
                 beanWrapper.setPropertyValue(key, value);
             }
         });
 
+        snapshotAvant.forEach((key, oldValue) -> {
+            Object newValue = beanWrapper.getPropertyValue(key);
+            auditService.logChampSiModifie(id, username, nomUtilisateur, champLabel(key), oldValue, newValue);
+        });
+
         demande.setVerrouillePar(null);
         demande.setVerrouilleDepuis(null);
 
-        DemandeClient saved = demandeClientRepository.save(demande);
+        DemandeClient saved;
+        try {
+            saved = demandeClientRepository.save(demande);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Contrainte de données violée lors de la modification de la demande"
+            );
+        }
 
         if (agenceChanged || dateNaissanceChanged) {
-            notifierDirecteursSiHorsAge(saved);
+            try {
+                notifierDirecteursSiHorsAge(saved);
+            } catch (Exception e) {
+                System.err.println("Echec de la notification hors-âge (mise à jour) pour la demande " + saved.getId());
+                e.printStackTrace();
+            }
         }
 
         return saved;
+    }
+
+    // Friendly French labels for the generic BeanWrapper-driven fields.
+    // Falls back to the raw key if not mapped, so nothing is silently dropped.
+    private String champLabel(String key) {
+        return switch (key) {
+            case "activite" -> "Activité";
+            case "secteurActivite" -> "Secteur d'activité";
+            case "adresseProjet" -> "Adresse projet";
+            case "besoin" -> "Utilisation du prêt";
+            case "dureePret" -> "Durée du prêt";
+            case "montant" -> "Montant";
+            case "montantDemande" -> "Montant demandé";
+            case "valide" -> "Validation";
+            case "datePrevuTraitement" -> "Date prévue de traitement";
+            case "statutProjet" -> "Statut du projet";
+            case "retourAgence" -> "Retour agence";
+            case "observation" -> "Observation";
+            default -> key;
+        };
     }
 
     public DemandeClient acquireLock(UUID id, String username) {
@@ -472,33 +661,64 @@ public class DemandeClientService {
         return demandeClientRepository.save(demande);
     }
 
+    // Legacy signature kept so existing controller call sites keep compiling.
     public DemandeClient changerStatut(UUID id, StatutDemande nouveauStatut) {
+        return changerStatut(id, nouveauStatut, SYSTEM_USERNAME, SYSTEM_NOM);
+    }
+
+    public DemandeClient changerStatut(UUID id, StatutDemande nouveauStatut, String username, String nomUtilisateur) {
         DemandeClient demande = demandeClientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
+        StatutDemande ancien = demande.getStatut();
         demande.setStatut(nouveauStatut);
-        return demandeClientRepository.save(demande);
+        DemandeClient saved = demandeClientRepository.save(demande);
+        auditService.logChampSiModifie(id, username, nomUtilisateur, "Statut", ancien, nouveauStatut);
+        return saved;
     }
 
+    // Legacy signature kept so existing controller call sites keep compiling.
     public DemandeClient changerJoignable(UUID id, Boolean joignable) {
+        return changerJoignable(id, joignable, SYSTEM_USERNAME, SYSTEM_NOM);
+    }
+
+    public DemandeClient changerJoignable(UUID id, Boolean joignable, String username, String nomUtilisateur) {
         DemandeClient demande = demandeClientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
+        Boolean ancien = demande.getJoignable();
         demande.setJoignable(joignable);
-        return demandeClientRepository.save(demande);
+        DemandeClient saved = demandeClientRepository.save(demande);
+        auditService.logChampSiModifie(id, username, nomUtilisateur, "Joignable", ancien, joignable);
+        return saved;
     }
 
+    // Legacy signature kept so existing controller call sites keep compiling.
     public DemandeClient changerInteresse(UUID id, Boolean interesse) {
-        DemandeClient demande = demandeClientRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Demande introuvable"));
-        demande.setInteresse(interesse);
-        return demandeClientRepository.save(demande);
+        return changerInteresse(id, interesse, SYSTEM_USERNAME, SYSTEM_NOM);
     }
 
-
-    public DemandeClient changerContacte(UUID id, Boolean contacte) {
+    public DemandeClient changerInteresse(UUID id, Boolean interesse, String username, String nomUtilisateur) {
         DemandeClient demande = demandeClientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
+        Boolean ancien = demande.getInteresse();
+        demande.setInteresse(interesse);
+        DemandeClient saved = demandeClientRepository.save(demande);
+        auditService.logChampSiModifie(id, username, nomUtilisateur, "Intéressé", ancien, interesse);
+        return saved;
+    }
+
+    // Legacy signature kept so existing controller call sites keep compiling.
+    public DemandeClient changerContacte(UUID id, Boolean contacte) {
+        return changerContacte(id, contacte, SYSTEM_USERNAME, SYSTEM_NOM);
+    }
+
+    public DemandeClient changerContacte(UUID id, Boolean contacte, String username, String nomUtilisateur) {
+        DemandeClient demande = demandeClientRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande introuvable"));
+        Boolean ancien = demande.getContacte();
         demande.setContacte(contacte);
-        return demandeClientRepository.save(demande);
+        DemandeClient saved = demandeClientRepository.save(demande);
+        auditService.logChampSiModifie(id, username, nomUtilisateur, "Contacté", ancien, contacte);
+        return saved;
     }
 
     private Integer toInteger(Object value) {
@@ -524,11 +744,23 @@ public class DemandeClientService {
         return demandeClientRepository.findByUtilisateur_Region(region);
     }
 
+    // Legacy signature kept so existing controller call sites keep compiling.
     public void deleteDemande(UUID id) {
+        deleteDemande(id, SYSTEM_USERNAME, SYSTEM_NOM);
+    }
+
+    public void deleteDemande(UUID id, String username, String nomUtilisateur) {
         DemandeClient demande = demandeClientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
 
         String cin = demande.getUtilisateur() != null ? demande.getUtilisateur().getCin() : null;
+
+        try {
+            auditService.logSuppression(id, username, nomUtilisateur);
+        } catch (Exception e) {
+            System.err.println("Echec de l'écriture de l'audit (suppression) pour la demande " + id);
+            e.printStackTrace();
+        }
 
         demandeClientRepository.deleteById(id);
 

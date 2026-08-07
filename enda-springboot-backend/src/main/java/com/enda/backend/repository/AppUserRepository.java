@@ -15,7 +15,6 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
     List<AppUser> findByAgenceAndRolesContaining(String agence, String role);
 
-    List<AppUser> findByRegionAndRolesContaining(String region, String role);
-
+    List<AppUser> findByRolesContaining(String role);
 
 }

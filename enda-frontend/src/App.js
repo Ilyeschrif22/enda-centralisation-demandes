@@ -7,12 +7,13 @@ import StatsCard from "./components/stats-card/stats-card";
 import { UsersIcon, CoinsIcon } from "./components/stats-card/icons";
 import DataTableFilters from "./components/data-table-filters/data-table-filters";
 import DataTable from "./components/data-table/data-table";
+import PageLoader from "./components/loader/PageLoader";
 import { initKeycloak, getUser, login, logout } from './services/KeycloakService'
 
-// Returns a representative numeric amount for a lead, whether montant
+// Returns a representative numeric amount for a request, whether montant
 // is a plain number or a "min-max" range string like "5001-10000".
-const getMontantValue = (lead) => {
-  const montant = lead.montant;
+const getMontantValue = (request) => {
+  const montant = request.montant;
 
   if (typeof montant === "string" && montant.includes("-")) {
     const [minStr, maxStr] = montant.split("-");
@@ -29,27 +30,27 @@ const getMontantValue = (lead) => {
 };
 
 function App() {
-  const [leads, setLeads] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [initialized, setInitialized] = useState(false)
   const [authenticated, setAuthenticated] = useState(false)
   const [user, setUser] = useState(null)
-  const [filteredLeads, setFilteredLeads] = useState([]);
+  const [filteredRequests, setFilteredRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("http://127.0.0.1:8089/demandes")
       .then((res) => res.json())
       .then((data) => {
-        setLeads(data);
-        setFilteredLeads(data);
+        setRequests(data);
+        setFilteredRequests(data);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  const handleLeadUpdated = (updatedLead) => {
-    setLeads((prev) =>
-      prev.map((lead) => (lead.id === updatedLead.id ? { ...lead, ...updatedLead } : lead))
+  const handleRequestUpdated = (updatedRequest) => {
+    setRequests((prev) =>
+      prev.map((request) => (request.id === updatedRequest.id ? { ...request, ...updatedRequest } : request))
     );
   };
 
@@ -59,24 +60,24 @@ function App() {
         key: "count",
         icon: <UsersIcon />,
         iconBg: "#FCEDF5",
-        value: leads.length,
+        value: requests.length,
         label: "Demandes reçues",
       },
       {
         key: "amount",
         icon: <CoinsIcon />,
         iconBg: "#FFF8E1",
-        value: leads
-          .reduce((sum, lead) => sum + Number(getMontantValue(lead)), 0)
+        value: requests
+          .reduce((sum, request) => sum + Number(getMontantValue(request)), 0)
           .toLocaleString(),
         label: "Montant total demandé",
       },
     ],
-    [leads]
+    [requests]
   );
 
   if (loading) {
-    return <div>Chargement...</div>;
+    return <PageLoader message="Chargement de l'application..." />;
   }
 
   return (
@@ -95,11 +96,11 @@ function App() {
             </div>
 
             <DataTableFilters
-              data={leads}
-              onFilteredChange={setFilteredLeads}
+              data={requests}
+              onFilteredChange={setFilteredRequests}
             />
 
-            <DataTable data={filteredLeads} onLeadUpdated={handleLeadUpdated} />
+            <DataTable data={filteredRequests} onRequestUpdated={handleRequestUpdated} onRequestDeleted={() => {}} />
           </main>
         </div>
       </div>

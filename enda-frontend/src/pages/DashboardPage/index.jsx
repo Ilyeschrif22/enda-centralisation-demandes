@@ -1,60 +1,64 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import StatsCard from "../components/stats-card/stats-card";
+import StatsCard from "../../components/stats-card/stats-card";
 import {
   UsersIcon,
   PhoneCheckIcon,
   PhoneXIcon,
   ClipboardCheckIcon,
   ClipboardXIcon,
-} from "../components/stats-card/icons";
-import DataTableFilters, { initialFilters, applyFilters } from "../components/data-table-filters/data-table-filters";
-import DataTable from "../components/data-table/data-table";
-import Pagination from "../components/pagination/pagination";
-import { useAuth } from "../context/AuthContext";
+} from "../../components/stats-card/icons";
+import DataTableFilters, { initialFilters, applyFilters } from "../../components/data-table-filters/data-table-filters";
+import DataTable from "../../components/data-table/data-table";
+import Pagination from "../../components/pagination/pagination";
+import { useAuth } from "../../context/AuthContext";
 
 const PAGE_SIZE = 50;
 
 const DashboardPage = () => {
-  const { leads, onLeadUpdated, onLeadDeleted } = useOutletContext();
+  const { requests, onRequestUpdated, onRequestDeleted } = useOutletContext();
   const { user } = useAuth();
 
   const [filters, setFilters] = useState(initialFilters);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const statsLeads = useMemo(() => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [requests]);
+
+  const statsRequests = useMemo(() => {
     const roles = user?.realm_access?.roles || [];
     const isCommercialAgent = roles.includes("Call center");
     const isAdmin = roles.includes("Admin");
     const isDirecteurRegional = roles.includes("Directeur Régional");
 
     if (isCommercialAgent || isAdmin) {
-      return leads;
+      return requests;
     }
 
     if (isDirecteurRegional) {
       const userRegion = user?.region?.[0] || user?.attributes?.region?.[0];
       if (!userRegion) return [];
-      return leads.filter((lead) => lead.utilisateur?.region === userRegion);
+      return requests.filter((request) => request.utilisateur?.region === userRegion);
     }
 
     const userAgence = user?.agence?.[0];
     if (!userAgence) return [];
 
-    return leads.filter((lead) => lead.agence === userAgence);
-  }, [leads, user]);
+    return requests.filter((request) => request.agence === userAgence);
+  }, [requests, user]);
 
  
-  const filteredLeads = useMemo(
-    () => applyFilters(statsLeads, filters),
-    [statsLeads, filters]
+  const filteredRequests = useMemo(
+    () => applyFilters(statsRequests, filters),
+    [statsRequests, filters]
   );
 
-  const sortedLeads = useMemo(() => {
-    return [...filteredLeads].sort(
+  const sortedRequests = useMemo(() => {
+    return [...filteredRequests].sort(
       (a, b) => new Date(b.dateSaisie) - new Date(a.dateSaisie)
     );
-  }, [filteredLeads]);
+  }, [filteredRequests]);
 
   const handleFilterChange = (next) => {
     setFilters(next);
@@ -63,13 +67,13 @@ const DashboardPage = () => {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(sortedLeads.length / PAGE_SIZE)
+    Math.ceil(sortedRequests.length / PAGE_SIZE)
   );
 
-  const paginatedLeads = useMemo(() => {
+  const paginatedRequests = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return sortedLeads.slice(start, start + PAGE_SIZE);
-  }, [sortedLeads, currentPage]);
+    return sortedRequests.slice(start, start + PAGE_SIZE);
+  }, [sortedRequests, currentPage]);
 
   const isDirecteur =
     (user?.realm_access?.roles || []).includes("Directeur Régional") ||
@@ -92,15 +96,15 @@ const DashboardPage = () => {
           key: "count",
           icon: <UsersIcon />,
           iconBg: "#FCEDF5",
-          value: statsLeads.length,
+          value: statsRequests.length,
           label: "Demandes reçues",
         },
          {
           key: "contacted",
           icon: <PhoneCheckIcon />,
           iconBg: "#ECFDF5",
-          value: statsLeads.filter(
-            (lead) => lead.contacte === true
+          value: statsRequests.filter(
+            (request) => request.contacte === true
           ).length,
           label: "Demandes contactées",
         },
@@ -108,8 +112,8 @@ const DashboardPage = () => {
           key: "saisie",
           icon: <ClipboardCheckIcon />,
           iconBg: "#EFF6FF",
-          value: statsLeads.filter(
-            (lead) => lead.statut === "SAISIE"
+          value: statsRequests.filter(
+            (request) => request.statut === "SAISIE"
           ).length,
           label: "Demandes saisies",
         },
@@ -117,16 +121,16 @@ const DashboardPage = () => {
           key: "non-saisie",
           icon: <ClipboardXIcon />,
           iconBg: "#FFF7ED",
-          value: statsLeads.filter(
-            (lead) => lead.statut === "NON_SAISIE" || !lead.statut
+          value: statsRequests.filter(
+            (request) => request.statut === "NON_SAISIE" || !request.statut
           ).length,
           label: "Demandes non saisies",
         },
       ];
 
       if (isDirecteur) {
-        const nonEligibles = statsLeads.filter((lead) => {
-          const age = calculateAge(lead.utilisateur?.dateNaissance);
+        const nonEligibles = statsRequests.filter((request) => {
+          const age = calculateAge(request.utilisateur?.dateNaissance);
           return age !== null && (age < 18 || age > 65);
         }).length;
 
@@ -142,21 +146,9 @@ const DashboardPage = () => {
         ];
       }
 
-      return [
-        ...baseStats,
-       ,
-        // {
-        //   key: "not-contacted",
-        //   icon: <PhoneXIcon />,
-        //   iconBg: "#FEF2F2",
-        //   value: statsLeads.filter(
-        //     (lead) => lead.contacte !== true
-        //   ).length,
-        //   label: "Demandes non contactées",
-        // },
-      ];
+      return baseStats;
     },
-    [statsLeads, isDirecteur]
+    [statsRequests, isDirecteur]
   );
 
   return (
@@ -173,15 +165,15 @@ const DashboardPage = () => {
       />
 
       <DataTable
-        data={paginatedLeads}
-        onLeadUpdated={onLeadUpdated}
-        onLeadDeleted={onLeadDeleted}
+        data={paginatedRequests}
+        onRequestUpdated={onRequestUpdated}
+        onRequestDeleted={onRequestDeleted}
       />
 
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
-        totalItems={sortedLeads.length}
+        totalItems={sortedRequests.length}
         pageSize={PAGE_SIZE}
         onPageChange={setCurrentPage}
       />

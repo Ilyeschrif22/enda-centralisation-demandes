@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import AddUtilisateurModal from "../components/add-utilisateur-modal/add-utilisateur-modal";
-import "../components/data-table/data-table.css";
+import AddUtilisateurModal from "../../components/add-utilisateur-modal/add-utilisateur-modal";
+import PageLoader from "../../components/loader/PageLoader";
+import "../../components/data-table/data-table.css";
 import "./users-page.css";
+import "./page-layout.css";
 
 const API_BASE = "http://127.0.0.1:8089";
 
@@ -90,6 +92,10 @@ const UsersPage = () => {
             console.error(err);
         }
     };
+
+    if (loading) {
+        return <PageLoader message="Chargement des utilisateurs..." />;
+    }
 
     const filteredUsers = users.filter((u) => {
         const q = search.toLowerCase();

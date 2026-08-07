@@ -89,6 +89,16 @@ const getSortValue = (lead, key) => {
             return lead.utilisateur?.region || "";
         case "statut":
             return lead.statut || "";
+        case "contacte":
+            return lead.contacte ? 1 : 0;
+        case "joignable":
+            if (lead.joignable === true) return 2;
+            if (lead.joignable === false) return 1;
+            return 0;
+        case "interesse":
+            if (lead.interesse === true) return 2;
+            if (lead.interesse === false) return 1;
+            return 0;
         default:
             return "";
     }
@@ -117,15 +127,33 @@ const SortIcon = ({ direction }) => {
     );
 };
 
-const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
+const buildAuditQuery = (user) => {
+    const username = user?.preferred_username || "";
+    const nomUtilisateur = `${user?.given_name || ""} ${user?.family_name || ""}`.trim() || username;
+    const params = new URLSearchParams({ username, nomUtilisateur });
+    return params.toString();
+};
+
+const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, onRequestDeleted, onViewStateChange }) => {
 
     const { user } = useAuth();
 
     const roles = user?.realm_access?.roles || [];
     const isCommercialAgent = roles.includes("Call center");
+    const isAssistantAgent = roles.includes("Assistant Agent");
     const isDirecteurRegional = roles.includes("Directeur Régional");
     const isDirecteur = isDirecteurRegional || roles.includes("Directeur Agence");
     const canUpdateStatus = !isDirecteur;
+
+    const auditQuery = buildAuditQuery(user);
+
+    // Resolved once per render: DashboardPage passes onRequestUpdated/onRequestDeleted,
+    // but the two are kept as fallbacks in case an older caller still passes
+    // onLeadUpdated/onLeadDeleted. Every place that mutates a lead — including
+    // AFTER the fetch resolves — must go through these, or the change never
+    // reaches Layout's `requests` state and only "sticks" until a refresh.
+    const updateHandler = onRequestUpdated || onLeadUpdated;
+    const deleteHandler = onRequestDeleted || onLeadDeleted;
 
     const [checked, setChecked] = useState(false);
     const [openMenu, setOpenMenu] = useState(null);
@@ -215,6 +243,10 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
 
     const viewingLead = visibleData.find((l) => l.id === viewingLeadId) || null;
 
+    useEffect(() => {
+        onViewStateChange?.(Boolean(viewingLead));
+    }, [viewingLead, onViewStateChange]);
+
     const handleView = (lead) => setViewingLeadId(lead.id);
     const handleEdit = (lead) => setEditingLead(lead);
     const handleReassign = (lead) => setReassigningLead(lead);
@@ -224,10 +256,10 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
 
         setStatusError(null);
         setDeletingId(lead.id);
-        onLeadDeleted?.(lead.id);
+        deleteHandler?.(lead.id);
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}`, {
+            const res = await fetch(`${API_BASE}/demandes/${lead.id}?${auditQuery}`, {
                 method: "DELETE",
             });
 
@@ -243,18 +275,18 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
         } catch (err) {
             console.error(err);
             setStatusError("Impossible de supprimer cette demande.");
-            onLeadUpdated?.(lead);
+            updateHandler?.(lead);
         } finally {
             setDeletingId(null);
         }
     };
 
     const handleSave = (updatedLead) => {
-        onLeadUpdated?.(updatedLead);
+        updateHandler?.(updatedLead);
     };
 
     const handleReassignConfirm = async (updatedLead) => {
-        const res = await fetch(`${API_BASE}/demandes/${updatedLead.id}`, {
+        const res = await fetch(`${API_BASE}/demandes/${updatedLead.id}?${auditQuery}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ agence: updatedLead.agence }),
@@ -265,7 +297,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
         }
 
         const savedLead = await res.json();
-        onLeadUpdated?.(savedLead);
+        updateHandler?.(savedLead);
     };
 
     const handleStatusChange = async (lead, newStatut) => {
@@ -275,10 +307,10 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
         setStatusError(null);
         setUpdatingStatusId(lead.id);
 
-        onLeadUpdated?.({ ...lead, statut: newStatut });
+        updateHandler?.({ ...lead, statut: newStatut });
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}/statut`, {
+            const res = await fetch(`${API_BASE}/demandes/${lead.id}/statut?${auditQuery}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newStatut),
@@ -289,11 +321,11 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
             }
 
             const updated = await res.json();
-            onLeadUpdated?.(updated);
+            updateHandler?.(updated);
         } catch (err) {
             console.error(err);
             setStatusError("Impossible de changer le statut.");
-            onLeadUpdated?.({ ...lead, statut: previousStatut });
+            updateHandler?.({ ...lead, statut: previousStatut });
         } finally {
             setUpdatingStatusId(null);
         }
@@ -306,10 +338,10 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
         setStatusError(null);
         setUpdatingContacteId(lead.id);
 
-        onLeadUpdated?.({ ...lead, contacte: newValue });
+        updateHandler?.({ ...lead, contacte: newValue });
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}/contacte`, {
+            const res = await fetch(`${API_BASE}/demandes/${lead.id}/contacte?${auditQuery}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newValue),
@@ -320,11 +352,11 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
             }
 
             const updated = await res.json();
-            onLeadUpdated?.(updated);
+            updateHandler?.(updated);
         } catch (err) {
             console.error(err);
             setStatusError("Impossible de changer le statut contacté.");
-            onLeadUpdated?.({ ...lead, contacte: previousContacte });
+            updateHandler?.({ ...lead, contacte: previousContacte });
         } finally {
             setUpdatingContacteId(null);
         }
@@ -337,10 +369,10 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
         setStatusError(null);
         setUpdatingInteresseId(lead.id);
 
-        onLeadUpdated?.({ ...lead, interesse: newValue });
+        updateHandler?.({ ...lead, interesse: newValue });
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}/interesse`, {
+            const res = await fetch(`${API_BASE}/demandes/${lead.id}/interesse?${auditQuery}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newValue),
@@ -351,11 +383,11 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
             }
 
             const updated = await res.json();
-            onLeadUpdated?.(updated);
+            updateHandler?.(updated);
         } catch (err) {
             console.error(err);
             setStatusError("Impossible de changer le statut intéressé.");
-            onLeadUpdated?.({ ...lead, interesse: previousInteresse });
+            updateHandler?.({ ...lead, interesse: previousInteresse });
         } finally {
             setUpdatingInteresseId(null);
         }
@@ -368,10 +400,10 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
         setStatusError(null);
         setUpdatingJoignableId(lead.id);
 
-        onLeadUpdated?.({ ...lead, joignable: newValue });
+        updateHandler?.({ ...lead, joignable: newValue });
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}/joignable`, {
+            const res = await fetch(`${API_BASE}/demandes/${lead.id}/joignable?${auditQuery}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newValue),
@@ -382,11 +414,11 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
             }
 
             const updated = await res.json();
-            onLeadUpdated?.(updated);
+            updateHandler?.(updated);
         } catch (err) {
             console.error(err);
             setStatusError("Impossible de changer le statut joignable.");
-            onLeadUpdated?.({ ...lead, joignable: previousJoignable });
+            updateHandler?.({ ...lead, joignable: previousJoignable });
         } finally {
             setUpdatingJoignableId(null);
         }
@@ -416,11 +448,11 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
                                 onChange={(e) => setChecked(e.target.checked)}
                             /></li>
                             <li className="sortable-header" onClick={() => handleSort("dateSaisie")}>
-                                <span>Date de creation</span>
+                                <span>Date Saisie</span>
                                 <SortIcon direction={getSortDirection("dateSaisie")} />
                             </li>
                             <li className="sortable-header" onClick={() => handleSort("nom")}>
-                                <span>Nom &amp; Prénom</span>
+                                <span>Nom Prénom</span>
                                 <SortIcon direction={getSortDirection("nom")} />
                             </li>
                             <li className="sortable-header" onClick={() => handleSort("telephone")}>
@@ -443,9 +475,18 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
                                 <span>Agence</span>
                                 <SortIcon direction={getSortDirection("agence")} />
                             </li>
-                            <li className="statu-contact">Contact</li>
-                            <li className="statu-contact">Joignable</li>
-                            <li className="statu-contact">Intéressé</li>
+                            <li className="statu-contact sortable-header" onClick={() => handleSort("contacte")}>
+                                <span>Contact</span>
+                                <SortIcon direction={getSortDirection("contacte")} />
+                            </li>
+                            <li className="statu-contact sortable-header" onClick={() => handleSort("joignable")}>
+                                <span>Joignable</span>
+                                <SortIcon direction={getSortDirection("joignable")} />
+                            </li>
+                            <li className="statu-contact sortable-header" onClick={() => handleSort("interesse")}>
+                                <span>Intéressé</span>
+                                <SortIcon direction={getSortDirection("interesse")} />
+                            </li>
                             <li className="statu sortable-header" onClick={() => handleSort("statut")}>
                                 <span>Statut</span>
                                 <SortIcon direction={getSortDirection("statut")} />
@@ -527,8 +568,19 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted }) => {
                                             <select
                                                 className={`status-demande ${getStatusClass(lead.statut)}`}
                                                 value={lead.statut || "NON_SAISIE"}
-                                                disabled={!canUpdateStatus || !(lead.contacte === true && lead.joignable === true && lead.interesse === true) || updatingStatusId === lead.id}
-                                                title={!(lead.contacte === true && lead.joignable === true && lead.interesse === true) ? "Contacté, Joignable et Intéressé doivent être validés d'abord" : ""}
+                                                disabled={
+                                                    !isAssistantAgent ||
+                                                    !canUpdateStatus ||
+                                                    !(lead.contacte && lead.joignable && lead.interesse) ||
+                                                    updatingStatusId === lead.id
+                                                }
+                                                title={
+                                                    isAssistantAgent
+                                                        ? "Les assistants ne peuvent pas modifier le statut."
+                                                        : !(lead.contacte && lead.joignable && lead.interesse)
+                                                            ? "Contacté, Joignable et Intéressé doivent être validés d'abord."
+                                                            : ""
+                                                }
                                                 onClick={(e) => e.stopPropagation()}
                                                 onChange={(e) => handleStatusChange(lead, e.target.value)}
                                             >

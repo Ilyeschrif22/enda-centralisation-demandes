@@ -18,6 +18,22 @@ public class DemandeClientController {
 
     private final DemandeClientService demandeClientService;
 
+    private static final String SYSTEM_USERNAME = "system";
+    private static final String SYSTEM_NOM = "Système";
+
+    // Falls back to "system"/"Système" only when the frontend didn't send
+    // audit identity (e.g. an unauthenticated/legacy caller), so every
+    // interactive action from the UI is attributable to a real user.
+    private String resolveUsername(String username) {
+        return (username != null && !username.isBlank()) ? username : SYSTEM_USERNAME;
+    }
+
+    private String resolveNomUtilisateur(String nomUtilisateur, String username) {
+        if (nomUtilisateur != null && !nomUtilisateur.isBlank()) return nomUtilisateur;
+        if (username != null && !username.isBlank()) return username;
+        return SYSTEM_NOM;
+    }
+
     @PostMapping("/import")
     public void importerDemandes() {
         demandeClientService.ajouterDemandes();
@@ -36,43 +52,84 @@ public class DemandeClientController {
     @PatchMapping("/{id}")
     public DemandeClient updateFields(
             @PathVariable UUID id,
-            @RequestBody Map<String, Object> fields) {
+            @RequestBody Map<String, Object> fields,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String nomUtilisateur) {
 
-        return demandeClientService.updateFields(id, fields);
+        return demandeClientService.updateFields(
+                id, fields,
+                resolveUsername(username),
+                resolveNomUtilisateur(nomUtilisateur, username)
+        );
     }
 
     @PatchMapping("/{id}/statut")
     public DemandeClient changerStatut(
             @PathVariable UUID id,
-            @RequestBody StatutDemande nouveauStatut) {
+            @RequestBody StatutDemande nouveauStatut,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String nomUtilisateur) {
 
-        return demandeClientService.changerStatut(id, nouveauStatut);
+        return demandeClientService.changerStatut(
+                id, nouveauStatut,
+                resolveUsername(username),
+                resolveNomUtilisateur(nomUtilisateur, username)
+        );
     }
 
     @PatchMapping("/{id}/contacte")
     public DemandeClient changerContacte(
             @PathVariable UUID id,
-            @RequestBody Boolean contacte) {
-        return demandeClientService.changerContacte(id, contacte);
+            @RequestBody Boolean contacte,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String nomUtilisateur) {
+
+        return demandeClientService.changerContacte(
+                id, contacte,
+                resolveUsername(username),
+                resolveNomUtilisateur(nomUtilisateur, username)
+        );
     }
 
     @PatchMapping("/{id}/joignable")
     public DemandeClient changerJoignable(
             @PathVariable UUID id,
-            @RequestBody(required = false) Boolean joignable) {
-        return demandeClientService.changerJoignable(id, joignable);
+            @RequestBody(required = false) Boolean joignable,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String nomUtilisateur) {
+
+        return demandeClientService.changerJoignable(
+                id, joignable,
+                resolveUsername(username),
+                resolveNomUtilisateur(nomUtilisateur, username)
+        );
     }
 
     @PatchMapping("/{id}/interesse")
     public DemandeClient changerInteresse(
             @PathVariable UUID id,
-            @RequestBody(required = false) Boolean interesse) {
-        return demandeClientService.changerInteresse(id, interesse);
+            @RequestBody(required = false) Boolean interesse,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String nomUtilisateur) {
+
+        return demandeClientService.changerInteresse(
+                id, interesse,
+                resolveUsername(username),
+                resolveNomUtilisateur(nomUtilisateur, username)
+        );
     }
 
     @PostMapping
-    public DemandeClient creerDemande(@RequestBody Map<String, Object> fields) {
-        return demandeClientService.creerDemande(fields);
+    public DemandeClient creerDemande(
+            @RequestBody Map<String, Object> fields,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String nomUtilisateur) {
+
+        return demandeClientService.creerDemande(
+                fields,
+                resolveUsername(username),
+                resolveNomUtilisateur(nomUtilisateur, username)
+        );
     }
 
     @GetMapping("/region/{region}")
@@ -81,10 +138,19 @@ public class DemandeClientController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDemande(@PathVariable UUID id) {
-        demandeClientService.deleteDemande(id);
+    public ResponseEntity<Void> deleteDemande(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String nomUtilisateur) {
+
+        demandeClientService.deleteDemande(
+                id,
+                resolveUsername(username),
+                resolveNomUtilisateur(nomUtilisateur, username)
+        );
         return ResponseEntity.noContent().build();
     }
+
     @PostMapping("/{id}/lock")
     public DemandeClient acquireLock(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         return demandeClientService.acquireLock(id, body.get("username"));

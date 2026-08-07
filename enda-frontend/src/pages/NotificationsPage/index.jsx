@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
+import PageLoader from "../../components/loader/PageLoader";
 import "./notifications-page.css";
 
 const API_BASE = "http://127.0.0.1:8089";
@@ -66,6 +67,10 @@ const NotificationsPage = () => {
     };
 
     const unreadCount = notifications.filter((n) => !n.lu).length;
+
+    if (loading) {
+        return <PageLoader message="Chargement des notifications..." />;
+    }
 
     return (
         <div className="notifications-page">

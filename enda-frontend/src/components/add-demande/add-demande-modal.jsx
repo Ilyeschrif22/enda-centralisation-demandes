@@ -73,12 +73,83 @@ const REQUIRED_FIELDS = Object.keys(initialForm).filter(
     (key) => !["valide", "contacte", "interesse", "joignable"].includes(key)
 );
 
-const Field = ({ label, error, children }) => (
+const Field = ({ id, label, error, children }) => (
     <div className="add-demande-field">
-        <label>{label} <span className="required">*</span></label>
+        <label htmlFor={id}>{label} <span className="required">*</span></label>
         {children}
         {error && <span className="field-error">{error}</span>}
     </div>
+);
+
+const ValidationIcon = ({ filled }) => (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+            d="M12 2.5l7.5 3.4v5.4c0 4.9-3.2 8.6-7.5 10.2-4.3-1.6-7.5-5.3-7.5-10.2V5.9L12 2.5z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+        />
+        <path
+            d="M8.5 12.2l2.4 2.4 4.6-4.8"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        />
+    </svg>
+);
+
+const PhoneIcon = ({ upsideDown }) => (
+    <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={upsideDown ? { transform: "rotate(135deg)" } : undefined}
+    >
+        <path
+            d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.2.2 2.5.6 3.6.1.4 0 .8-.2 1L6.6 10.8z"
+            fill="currentColor"
+        />
+    </svg>
+);
+
+const ThumbUpIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+            d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm2.3 9h7.6c.8 0 1.5-.5 1.7-1.3l1.9-6.7A1.5 1.5 0 0 0 19.1 10H14l.9-4.4c.2-.9-.5-1.6-1.3-1.6-.4 0-.8.2-1 .6L9 11.3V20l.3 0z"
+            fill="currentColor"
+        />
+    </svg>
+);
+
+const ThumbDownIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+            d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-3zm-2.3-9H7.1c-.8 0-1.5.5-1.7 1.3L3.5 12a1.5 1.5 0 0 0 1.4 2h5.1l-.9 4.4c-.2.9.5 1.6 1.3 1.6.4 0 .8-.2 1-.6L15 12.7V4l-.3 0z"
+            fill="currentColor"
+        />
+    </svg>
+);
+
+const SignalIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="14" width="3" height="6" rx="1" fill="currentColor" />
+        <rect x="9" y="10" width="3" height="10" rx="1" fill="currentColor" />
+        <rect x="15" y="6" width="3" height="14" rx="1" fill="currentColor" />
+        <rect x="21" y="2" width="0" height="0" />
+    </svg>
+);
+
+const SignalOffIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="14" width="3" height="6" rx="1" fill="currentColor" opacity=".35" />
+        <rect x="9" y="10" width="3" height="10" rx="1" fill="currentColor" opacity=".35" />
+        <rect x="15" y="6" width="3" height="14" rx="1" fill="currentColor" opacity=".35" />
+        <path d="M2 2l20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
 );
 
 const formFromLead = (lead) => {
@@ -115,6 +186,7 @@ const formFromLead = (lead) => {
 const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) => {
     const { user } = useAuth();
     const currentUsername = user?.preferred_username || user?.username || "utilisateur";
+    const currentNomUtilisateur = `${user?.given_name} ${user?.family_name}`.trim() || currentUsername;
 
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState({});
@@ -212,6 +284,33 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
         onClose();
     };
 
+    // Locked demande: show ONLY the alert, not the full modal behind it.
+    if (lockedBy) {
+        return (
+            <div className="cin-alert-overlay" onClick={handleClose}>
+                <div
+                    className="cin-alert-modal cin-alert-modal--existing"
+                    onClick={(e) => e.stopPropagation()}
+                    tabIndex={-1}
+                >
+                    <div className="cin-alert-header">
+                        <span className="cin-alert-badge">
+                            <span className="cin-alert-badge-dot" />
+                            Demande verrouillée
+                        </span>
+                        <h3 className="alert-lock-message">Cette demande est en cours de modification Réessayez plus tard.</h3>
+                    </div>
+
+                    <div className="cin-alert-actions">
+                        <button type="button" onClick={handleClose}>
+                            Fermer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     const setField = (name, value) => {
         setForm((prev) => {
             const next = { ...prev, [name]: value };
@@ -284,7 +383,17 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
             const payload = isEditing
                 ? Object.fromEntries(Object.entries(form).filter(([key]) => key !== "cin"))
                 : form;
-            const res = await fetch(isEditing ? `${API_BASE}/demandes/${lead.id}` : `${API_BASE}/demandes`, {
+
+            const auditQuery = new URLSearchParams({
+                username: currentUsername,
+                nomUtilisateur: currentNomUtilisateur,
+            }).toString();
+
+            const url = isEditing
+                ? `${API_BASE}/demandes/${lead.id}?${auditQuery}`
+                : `${API_BASE}/demandes?${auditQuery}`;
+
+            const res = await fetch(url, {
                 method: isEditing ? "PATCH" : "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -319,25 +428,16 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                     <div className="add-demande-body">
                         <p>Vérification en cours...</p>
                     </div>
-                ) : lockedBy ? (
-                    <div className="add-demande-body">
-                        <div className="add-demande-error">
-                            {lockedBy} est en train de modifier cette demande. Réessayez plus tard.
-                        </div>
-                        <div className="add-demande-footer">
-                            <button type="button" className="btn btn-ghost" onClick={handleClose}>Fermer</button>
-                        </div>
-                    </div>
                 ) : (
-                    <form className="add-demande-body" onSubmit={handleSubmit}>
+                    <form id="add-demande-form" className="add-demande-body" onSubmit={handleSubmit}>
                         {submitError && <div className="add-demande-error">{submitError}</div>}
 
                         <div className="add-demande-columns">
                             <div className="add-demande-column">
                                 <div className="add-demande-section add-demande-section-request">
                                     <div className="add-demande-grid">
-                                        <Field label="Type demande" error={errors.typeDemande}>
-                                            <select value={form.typeDemande} onChange={(e) => setField("typeDemande", e.target.value)}>
+                                        <Field id="typeDemande" label="Type demande" error={errors.typeDemande}>
+                                            <select id="typeDemande" value={form.typeDemande} onChange={(e) => setField("typeDemande", e.target.value)}>
                                                 <option value="">Sélectionner...</option>
                                                 {TYPE_DEMANDE_OPTIONS.map((o) => (
                                                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -346,59 +446,89 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                                         </Field>
 
                                         <div className="add-demande-field">
-                                            <label>Validation</label>
-                                            <select
-                                                value={form.valide ? "true" : "false"}
-                                                onChange={(e) => setField("valide", e.target.value === "true")}
-                                            >
-                                                <option value="false">Non validée</option>
-                                                <option value="true">Validée</option>
-                                            </select>
-                                        </div>
+                                            <label>Statuts</label>
+                                           <div className="status-icon-group">
+    <button
+        type="button"
+        className={`status-icon-btn ${form.contacte ? "status-icon-btn--green" : "status-icon-btn--red"}`}
+        title={form.contacte ? "Contacté" : "Non contacté"}
+        onClick={() => setField("contacte", !form.contacte)}
+    >
+        <PhoneIcon upsideDown={!form.contacte} />
+    </button>
 
-                                        <div className="add-demande-field">
-                                            <label>Contact</label>
-                                            <select
-                                                value={form.contacte ? "true" : "false"}
-                                                onChange={(e) => setField("contacte", e.target.value === "true")}
-                                            >
-                                                <option value="false">Non contacté</option>
-                                                <option value="true">Contacté</option>
-                                            </select>
-                                        </div>
+    <button
+        type="button"
+        disabled={!form.contacte}
+        className={`status-icon-btn ${
+            !form.contacte
+                ? "status-icon-btn--disabled"
+                : form.joignable === true
+                ? "status-icon-btn--green"
+                : form.joignable === false
+                ? "status-icon-btn--red"
+                : ""
+        }`}
+        title={
+            !form.contacte
+                ? "Contactez d'abord le client"
+                : form.joignable === true
+                ? "Joignable"
+                : form.joignable === false
+                ? "Non joignable"
+                : "Joignabilité non définie"
+        }
+        onClick={() =>
+            form.contacte &&
+            setField(
+                "joignable",
+                form.joignable === null
+                    ? true
+                    : form.joignable === true
+                    ? false
+                    : null
+            )
+        }
+    >
+        {form.joignable === false ? <SignalOffIcon /> : <SignalIcon />}
+    </button>
 
-                                        <div className="add-demande-field">
-                                            <label>Intéressé</label>
-                                            <select
-                                                value={form.interesse === null ? "null" : form.interesse ? "true" : "false"}
-                                                onChange={(e) =>
-                                                    setField(
-                                                        "interesse",
-                                                        e.target.value === "null" ? null : e.target.value === "true"
-                                                    )
-                                                }
-                                            >
-                                                <option value="null">Non défini</option>
-                                                <option value="true">Intéressé</option>
-                                                <option value="false">Non intéressé</option>
-                                            </select>
-                                        </div>
-
-                                        <div className="add-demande-field">
-                                            <label>Joignable</label>
-                                            <select
-                                                value={form.joignable === null ? "null" : form.joignable ? "true" : "false"}
-                                                onChange={(e) =>
-                                                    setField(
-                                                        "joignable",
-                                                        e.target.value === "null" ? null : e.target.value === "true"
-                                                    )
-                                                }
-                                            >
-                                                <option value="null">Non défini</option>
-                                                <option value="true">Joignable</option>
-                                                <option value="false">Non joignable</option>
-                                            </select>
+    <button
+        type="button"
+        disabled={form.joignable !== true}
+        className={`status-icon-btn ${
+            form.joignable !== true
+                ? "status-icon-btn--disabled"
+                : form.interesse === true
+                ? "status-icon-btn--green"
+                : form.interesse === false
+                ? "status-icon-btn--red"
+                : ""
+        }`}
+        title={
+            form.joignable !== true
+                ? "Le client doit être joignable"
+                : form.interesse === true
+                ? "Intéressé"
+                : form.interesse === false
+                ? "Non intéressé"
+                : "Intérêt non défini"
+        }
+        onClick={() =>
+            form.joignable === true &&
+            setField(
+                "interesse",
+                form.interesse === null
+                    ? true
+                    : form.interesse === true
+                    ? false
+                    : null
+            )
+        }
+    >
+        {form.interesse === false ? <ThumbDownIcon /> : <ThumbUpIcon />}
+    </button>
+</div>
                                         </div>
                                     </div>
                                 </div>
@@ -406,29 +536,30 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                                 <div className="add-demande-section add-demande-section-identity">
                                     <h3>Identité</h3>
                                     <div className="add-demande-grid">
-                                        <Field label="Nom de famille" error={errors.nomFamille}>
-                                            <input type="text" value={form.nomFamille} onChange={(e) => setField("nomFamille", e.target.value)} />
+                                        <Field id="nomFamille" label="Nom de famille" error={errors.nomFamille}>
+                                            <input id="nomFamille" type="text" value={form.nomFamille} onChange={(e) => setField("nomFamille", e.target.value)} />
                                         </Field>
-                                        <Field label="Prénom" error={errors.prenom}>
-                                            <input type="text" value={form.prenom} onChange={(e) => setField("prenom", e.target.value)} />
+                                        <Field id="prenom" label="Prénom" error={errors.prenom}>
+                                            <input id="prenom" type="text" value={form.prenom} onChange={(e) => setField("prenom", e.target.value)} />
                                         </Field>
-                                        <Field label="Date de naissance" error={errors.dateNaissance}>
-                                            <input type="date" value={form.dateNaissance} onChange={(e) => setField("dateNaissance", e.target.value)} />
+                                        <Field id="dateNaissance" label="Date de naissance" error={errors.dateNaissance}>
+                                            <input id="dateNaissance" type="date" value={form.dateNaissance} onChange={(e) => setField("dateNaissance", e.target.value)} />
                                         </Field>
-                                        <Field label="Genre" error={errors.genre}>
-                                            <select value={form.genre} onChange={(e) => setField("genre", e.target.value)}>
+                                        <Field id="genre" label="Genre" error={errors.genre}>
+                                            <select id="genre" value={form.genre} onChange={(e) => setField("genre", e.target.value)}>
                                                 <option value="">Sélectionner...</option>
                                                 {GENRE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                                             </select>
                                         </Field>
-                                        <Field label="Situation familiale" error={errors.situationFamiliale}>
-                                            <select value={form.situationFamiliale} onChange={(e) => setField("situationFamiliale", e.target.value)}>
+                                        <Field id="situationFamiliale" label="Situation familiale" error={errors.situationFamiliale}>
+                                            <select id="situationFamiliale" value={form.situationFamiliale} onChange={(e) => setField("situationFamiliale", e.target.value)}>
                                                 <option value="">Sélectionner...</option>
                                                 {SITUATION_FAMILIALE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                                             </select>
                                         </Field>
-                                        <Field label="CIN" error={errors.cin}>
+                                        <Field id="cin" label="CIN" error={errors.cin}>
                                             <input
+                                                id="cin"
                                                 type="text"
                                                 maxLength={8}
                                                 value={form.cin}
@@ -441,14 +572,15 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                                 <div className="add-demande-section add-demande-section-activity">
                                     <h3>Activité</h3>
                                     <div className="add-demande-grid">
-                                        <Field label="Secteur d'activité" error={errors.secteurActivite}>
-                                            <select value={form.secteurActivite} onChange={(e) => setField("secteurActivite", e.target.value)}>
+                                        <Field id="secteurActivite" label="Secteur d'activité" error={errors.secteurActivite}>
+                                            <select id="secteurActivite" value={form.secteurActivite} onChange={(e) => setField("secteurActivite", e.target.value)}>
                                                 <option value="">Sélectionner...</option>
                                                 {SECTEURS.map((o) => <option key={o} value={o}>{o}</option>)}
                                             </select>
                                         </Field>
-                                        <Field label="Activité" error={errors.activite}>
+                                        <Field id="activite" label="Activité" error={errors.activite}>
                                             <select
+                                                id="activite"
                                                 value={form.activite}
                                                 onChange={(e) => setField("activite", e.target.value)}
                                                 disabled={!form.secteurActivite}
@@ -465,39 +597,41 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                                 <div className="add-demande-section add-demande-section-contact">
                                     <h3>Contact & localisation</h3>
                                     <div className="add-demande-grid">
-                                        <Field label="N° de téléphone" error={errors.telephone}>
+                                        <Field id="telephone" label="N° de téléphone" error={errors.telephone}>
                                             <input
+                                                id="telephone"
                                                 type="text"
                                                 maxLength={8}
                                                 value={form.telephone}
                                                 onChange={(e) => setField("telephone", e.target.value.replace(/\D/g, ""))}
                                             />
                                         </Field>
-                                        <Field label="Adresse" error={errors.adresse}>
-                                            <input type="text" value={form.adresse} onChange={(e) => setField("adresse", e.target.value)} />
+                                        <Field id="adresse" label="Adresse" error={errors.adresse}>
+                                            <input id="adresse" type="text" value={form.adresse} onChange={(e) => setField("adresse", e.target.value)} />
                                         </Field>
-                                        <Field label="Gouvernorat" error={errors.gouvernorat}>
-                                            <select value={form.gouvernorat} onChange={(e) => setField("gouvernorat", e.target.value)} disabled={!agencesLoaded}>
+                                        <Field id="gouvernorat" label="Gouvernorat" error={errors.gouvernorat}>
+                                            <select id="gouvernorat" value={form.gouvernorat} onChange={(e) => setField("gouvernorat", e.target.value)} disabled={!agencesLoaded}>
                                                 <option value="">Sélectionner...</option>
                                                 {gouvernorats.map((o) => <option key={o} value={o}>{o}</option>)}
                                             </select>
                                         </Field>
-                                        <Field label="Délégation" error={errors.delegation}>
-                                            <select value={form.delegation} onChange={(e) => setField("delegation", e.target.value)} disabled={!form.gouvernorat}>
+                                        <Field id="delegation" label="Délégation" error={errors.delegation}>
+                                            <select id="delegation" value={form.delegation} onChange={(e) => setField("delegation", e.target.value)} disabled={!form.gouvernorat}>
                                                 <option value="">Sélectionner...</option>
                                                 {delegations.map((o) => <option key={o} value={o}>{o}</option>)}
                                             </select>
                                         </Field>
-                                        <Field label="Code postal" error={errors.codePostal}>
+                                        <Field id="codePostal" label="Code postal" error={errors.codePostal}>
                                             <input
+                                                id="codePostal"
                                                 type="text"
                                                 maxLength={4}
                                                 value={form.codePostal}
                                                 onChange={(e) => setField("codePostal", e.target.value.replace(/\D/g, ""))}
                                             />
                                         </Field>
-                                        <Field label="Agence la plus proche" error={errors.agence}>
-                                            <input type="text" value={form.agence} readOnly placeholder="Choisir une délégation" />
+                                        <Field id="agence" label="Agence la plus proche" error={errors.agence}>
+                                            <input id="agence" type="text" value={form.agence} readOnly placeholder="Choisir une délégation" />
                                         </Field>
                                     </div>
                                 </div>
@@ -505,28 +639,29 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                                 <div className="add-demande-section add-demande-section-credit">
                                     <h3>Crédit</h3>
                                     <div className="add-demande-grid">
-                                        <Field label="Montant de crédit demandé" error={errors.montantDemande}>
-                                            <select value={form.montantDemande} onChange={(e) => setField("montantDemande", e.target.value)}>
+                                        <Field id="montantDemande" label="Montant de crédit demandé" error={errors.montantDemande}>
+                                            <select id="montantDemande" value={form.montantDemande} onChange={(e) => setField("montantDemande", e.target.value)}>
                                                 <option value="">Sélectionner...</option>
                                                 {MONTANT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                                             </select>
                                         </Field>
-                                        <Field label="Utilisation du prêt" error={errors.utilisationPret}>
-                                            <select value={form.utilisationPret} onChange={(e) => setField("utilisationPret", e.target.value)}>
+                                        <Field id="utilisationPret" label="Utilisation du prêt" error={errors.utilisationPret}>
+                                            <select id="utilisationPret" value={form.utilisationPret} onChange={(e) => setField("utilisationPret", e.target.value)}>
                                                 <option value="">Sélectionner...</option>
                                                 {UTILISATION_PRET_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                                             </select>
                                         </Field>
-                                        <Field label="Capacité de remboursement déclarée" error={errors.capaciteRemboursement}>
+                                        <Field id="capaciteRemboursement" label="Capacité de remboursement déclarée" error={errors.capaciteRemboursement}>
                                             <input
+                                                id="capaciteRemboursement"
                                                 type="text"
                                                 inputMode="numeric"
                                                 value={form.capaciteRemboursement}
                                                 onChange={(e) => setField("capaciteRemboursement", e.target.value.replace(/\D/g, ""))}
                                             />
                                         </Field>
-                                        <Field label="Durée de prêt souhaitée" error={errors.dureePret}>
-                                            <select value={form.dureePret} onChange={(e) => setField("dureePret", e.target.value)}>
+                                        <Field id="dureePret" label="Durée de prêt souhaitée" error={errors.dureePret}>
+                                            <select id="dureePret" value={form.dureePret} onChange={(e) => setField("dureePret", e.target.value)}>
                                                 <option value="">Sélectionner...</option>
                                                 {DUREE_PRET_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                                             </select>
@@ -538,8 +673,16 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
 
                         <div className="add-demande-footer">
                             <button type="button" className="btn btn-ghost" onClick={handleClose}>Annuler</button>
-                            <button type="submit" className="btn btn-primary" disabled={submitting}>
+                            <button id="add-demande-submit" type="submit" className="btn btn-primary" disabled={submitting}>
                                 {submitting ? "Enregistrement..." : isEditing ? "Enregistrer les modifications" : "Créer la demande"}
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn-validation-toggle ${form.valide ? "btn-validation-toggle--active" : ""}`}
+                                title={form.valide ? "Demande validée (cliquer pour annuler)" : "Marquer comme validée"}
+                                onClick={() => setField("valide", !form.valide)}
+                            >
+                                <ValidationIcon filled={form.valide} />
                             </button>
                         </div>
                     </form>
@@ -576,7 +719,7 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                         </div>
 
                         <div className="cin-alert-actions">
-                            <button type="button" onClick={() => setCinAlert(null)}>
+                            <button id="cin-validate-button" type="button" onClick={() => setCinAlert(null)}>
                                 Compris
                             </button>
                         </div>
