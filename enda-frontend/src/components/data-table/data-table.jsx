@@ -1,14 +1,22 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import RowActionsMenu from "./row-actions-menu";
 import EditDemandeModal from "../edit-demande-modal/edit-demande-modal";
 import LeadProfileView from "../profile-details/lead-profile";
 import ReassignModal from "./reassign-modal";
 import DeleteConfirmationModal from "./delete-confirmation-modal";
 import { useAuth } from "../../context/AuthContext";
+import {
+    getDemandesByRegion,
+    deleteDemande,
+    reassignDemande,
+    updateStatut,
+    updateContacte,
+    updateJoignable,
+    updateInteresse,
+} from "../../api/demandes";
 
 import './data-table.css';
 
-const API_BASE = "http://127.0.0.1:8089";
 const PAGE_SIZE = 50;
 
 const STATUT_OPTIONS = [
@@ -127,6 +135,17 @@ const SortIcon = ({ direction }) => {
     );
 };
 
+const GripIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="9" cy="6" r="1.5" />
+        <circle cx="15" cy="6" r="1.5" />
+        <circle cx="9" cy="12" r="1.5" />
+        <circle cx="15" cy="12" r="1.5" />
+        <circle cx="9" cy="18" r="1.5" />
+        <circle cx="15" cy="18" r="1.5" />
+    </svg>
+);
+
 const buildAuditQuery = (user) => {
     const username = user?.preferred_username || "";
     const nomUtilisateur = `${user?.given_name || ""} ${user?.family_name || ""}`.trim() || username;
@@ -155,7 +174,6 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
     const updateHandler = onRequestUpdated || onLeadUpdated;
     const deleteHandler = onRequestDeleted || onLeadDeleted;
 
-    const [checked, setChecked] = useState(false);
     const [openMenu, setOpenMenu] = useState(null);
     const [editingLead, setEditingLead] = useState(null);
     const [viewingLeadId, setViewingLeadId] = useState(null);
@@ -172,6 +190,18 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
     const [regionLoading, setRegionLoading] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: "dateSaisie", direction: "desc" });
 
+    // --- Selection state ---
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const selectAllRef = useRef(null);
+
+    // --- Manual drag-to-reorder state ---
+    // customOrder is an array of lead ids representing a user-defined order.
+    // It takes precedence over sortConfig once the user drags a row, and is
+    // cleared again as soon as a column header is clicked.
+    const [customOrder, setCustomOrder] = useState(null);
+    const [draggedRowId, setDraggedRowId] = useState(null);
+    const [dragOverRowId, setDragOverRowId] = useState(null);
+
     useEffect(() => {
         if (!isDirecteurRegional) {
             setRegionData(null);
@@ -183,11 +213,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
             return;
         }
         setRegionLoading(true);
-        fetch(`${API_BASE}/demandes/region/${encodeURIComponent(userRegion)}`)
-            .then((res) => {
-                if (!res.ok) throw new Error(`Echec (${res.status})`);
-                return res.json();
-            })
+        getDemandesByRegion(userRegion)
             .then(setRegionData)
             .catch((err) => {
                 console.error("Impossible de charger les demandes par région", err);
@@ -196,7 +222,23 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
             .finally(() => setRegionLoading(false));
     }, [isDirecteurRegional, user]);
 
+    // Drop selections for leads that no longer exist (deleted, reassigned out, etc.)
+    useEffect(() => {
+        setSelectedIds((prev) => {
+            if (prev.size === 0) return prev;
+            const validIds = new Set(data.map((l) => l.id));
+            let changed = false;
+            const next = new Set();
+            prev.forEach((id) => {
+                if (validIds.has(id)) next.add(id);
+                else changed = true;
+            });
+            return changed ? next : prev;
+        });
+    }, [data]);
+
     const handleSort = (key) => {
+        setCustomOrder(null);
         setSortConfig((prev) => {
             if (prev.key === key) {
                 return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
@@ -230,7 +272,20 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
         return result;
     }, [data, user, isDirecteurRegional, regionData, sortConfig]);
 
-    const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+    // Applies the manual drag order on top of the sorted/filtered data, if any.
+    // Any lead not present in customOrder (e.g. newly fetched) is appended at the end.
+    const orderedData = useMemo(() => {
+        if (!customOrder) return filteredData;
+
+        const byId = new Map(filteredData.map((lead) => [lead.id, lead]));
+        const ordered = customOrder.map((id) => byId.get(id)).filter(Boolean);
+        const orderedIds = new Set(customOrder);
+        const extra = filteredData.filter((lead) => !orderedIds.has(lead.id));
+
+        return [...ordered, ...extra];
+    }, [filteredData, customOrder]);
+
+    const totalPages = Math.max(1, Math.ceil(orderedData.length / PAGE_SIZE));
 
     useEffect(() => {
         if (page > totalPages) setPage(1);
@@ -238,14 +293,96 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
 
     const visibleData = useMemo(() => {
         const start = (page - 1) * PAGE_SIZE;
-        return filteredData.slice(start, start + PAGE_SIZE);
-    }, [filteredData, page]);
+        return orderedData.slice(start, start + PAGE_SIZE);
+    }, [orderedData, page]);
 
     const viewingLead = visibleData.find((l) => l.id === viewingLeadId) || null;
 
     useEffect(() => {
         onViewStateChange?.(Boolean(viewingLead));
     }, [viewingLead, onViewStateChange]);
+
+    // --- Selection helpers (current page only, like most modern tables) ---
+    const allVisibleSelected = visibleData.length > 0 && visibleData.every((l) => selectedIds.has(l.id));
+    const someVisibleSelected = visibleData.some((l) => selectedIds.has(l.id));
+
+    useEffect(() => {
+        if (selectAllRef.current) {
+            selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+        }
+    }, [someVisibleSelected, allVisibleSelected]);
+
+    const handleSelectAll = (isChecked) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            visibleData.forEach((lead) => {
+                if (isChecked) next.add(lead.id);
+                else next.delete(lead.id);
+            });
+            return next;
+        });
+    };
+
+    const handleSelectRow = (id, isChecked) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (isChecked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    };
+
+    const clearSelection = () => setSelectedIds(new Set());
+
+    // --- Drag-to-reorder handlers ---
+    const handleDragStart = (e, id) => {
+        setDraggedRowId(id);
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", id);
+    };
+
+    const handleDragOverRow = (e, id) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (draggedRowId && id !== draggedRowId && id !== dragOverRowId) {
+            setDragOverRowId(id);
+        }
+    };
+
+    const handleDragLeaveRow = (id) => {
+        setDragOverRowId((prev) => (prev === id ? null : prev));
+    };
+
+    const handleDropRow = (e, targetId) => {
+        e.preventDefault();
+        setDragOverRowId(null);
+
+        if (!draggedRowId || draggedRowId === targetId) {
+            setDraggedRowId(null);
+            return;
+        }
+
+        const currentIds = orderedData.map((l) => l.id);
+        const fromIndex = currentIds.indexOf(draggedRowId);
+        const toIndex = currentIds.indexOf(targetId);
+
+        if (fromIndex === -1 || toIndex === -1) {
+            setDraggedRowId(null);
+            return;
+        }
+
+        const nextIds = [...currentIds];
+        nextIds.splice(fromIndex, 1);
+        nextIds.splice(toIndex, 0, draggedRowId);
+
+        setCustomOrder(nextIds);
+        setDraggedRowId(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedRowId(null);
+        setDragOverRowId(null);
+    };
 
     const handleView = (lead) => setViewingLeadId(lead.id);
     const handleEdit = (lead) => setEditingLead(lead);
@@ -259,13 +396,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
         deleteHandler?.(lead.id);
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}?${auditQuery}`, {
-                method: "DELETE",
-            });
-
-            if (!res.ok) {
-                throw new Error(`Echec de la suppression (${res.status})`);
-            }
+            await deleteDemande(lead.id, auditQuery);
 
             if (viewingLeadId === lead.id) {
                 setViewingLeadId(null);
@@ -286,17 +417,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
     };
 
     const handleReassignConfirm = async (updatedLead) => {
-        const res = await fetch(`${API_BASE}/demandes/${updatedLead.id}?${auditQuery}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ agence: updatedLead.agence }),
-        });
-
-        if (!res.ok) {
-            throw new Error(`Echec de la réaffectation (${res.status})`);
-        }
-
-        const savedLead = await res.json();
+        const savedLead = await reassignDemande(updatedLead.id, updatedLead.agence, auditQuery);
         updateHandler?.(savedLead);
     };
 
@@ -310,17 +431,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
         updateHandler?.({ ...lead, statut: newStatut });
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}/statut?${auditQuery}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newStatut),
-            });
-
-            if (!res.ok) {
-                throw new Error(`Echec de la mise à jour du statut (${res.status})`);
-            }
-
-            const updated = await res.json();
+            const updated = await updateStatut(lead.id, newStatut, auditQuery);
             updateHandler?.(updated);
         } catch (err) {
             console.error(err);
@@ -341,17 +452,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
         updateHandler?.({ ...lead, contacte: newValue });
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}/contacte?${auditQuery}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newValue),
-            });
-
-            if (!res.ok) {
-                throw new Error(`Echec de la mise à jour du statut contacté (${res.status})`);
-            }
-
-            const updated = await res.json();
+            const updated = await updateContacte(lead.id, newValue, auditQuery);
             updateHandler?.(updated);
         } catch (err) {
             console.error(err);
@@ -372,17 +473,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
         updateHandler?.({ ...lead, interesse: newValue });
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}/interesse?${auditQuery}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newValue),
-            });
-
-            if (!res.ok) {
-                throw new Error(`Echec de la mise à jour du statut intéressé (${res.status})`);
-            }
-
-            const updated = await res.json();
+            const updated = await updateInteresse(lead.id, newValue, auditQuery);
             updateHandler?.(updated);
         } catch (err) {
             console.error(err);
@@ -403,17 +494,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
         updateHandler?.({ ...lead, joignable: newValue });
 
         try {
-            const res = await fetch(`${API_BASE}/demandes/${lead.id}/joignable?${auditQuery}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newValue),
-            });
-
-            if (!res.ok) {
-                throw new Error(`Echec de la mise à jour du statut joignable (${res.status})`);
-            }
-
-            const updated = await res.json();
+            const updated = await updateJoignable(lead.id, newValue, auditQuery);
             updateHandler?.(updated);
         } catch (err) {
             console.error(err);
@@ -439,14 +520,25 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                         <div className="data-table-error">{statusError}</div>
                     )}
 
+                    {selectedIds.size > 0 && (
+                        <div className="data-table-selection-bar">
+                            <span>{selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}</span>
+                            <button type="button" onClick={clearSelection}>
+                                Désélectionner
+                            </button>
+                        </div>
+                    )}
+
                     <div className="data-table-header">
                         <ul className="data-table-header-list">
                             <li><input
                                 type="checkbox"
                                 aria-label="Select all"
-                                checked={checked}
-                                onChange={(e) => setChecked(e.target.checked)}
+                                ref={selectAllRef}
+                                checked={allVisibleSelected}
+                                onChange={(e) => handleSelectAll(e.target.checked)}
                             /></li>
+                            <li className="col-drag" aria-hidden="true"></li>
                             <li className="sortable-header" onClick={() => handleSort("dateSaisie")}>
                                 <span>Date Saisie</span>
                                 <SortIcon direction={getSortDirection("dateSaisie")} />
@@ -506,14 +598,41 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                         <div className="data-table-rows">
                             {visibleData.map((lead) => (
                                 <div
-                                    className={`data-table-body ${deletingId === lead.id ? "row-deleting" : ""}`}
+                                    className={[
+                                        "data-table-body",
+                                        deletingId === lead.id ? "row-deleting" : "",
+                                        draggedRowId === lead.id ? "row-dragging" : "",
+                                        dragOverRowId === lead.id ? "row-drag-over" : "",
+                                        selectedIds.has(lead.id) ? "row-selected" : "",
+                                    ].filter(Boolean).join(" ")}
                                     key={lead.id}
+                                    onDragOver={(e) => handleDragOverRow(e, lead.id)}
+                                    onDragLeave={() => handleDragLeaveRow(lead.id)}
+                                    onDrop={(e) => handleDropRow(e, lead.id)}
                                 >
                                     <ul className="data-table-body-list">
                                         <li><input
                                             type="checkbox"
                                             aria-label="Select row"
+                                            checked={selectedIds.has(lead.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={(e) => handleSelectRow(lead.id, e.target.checked)}
                                         /></li>
+                                        <li className="col-drag">
+                                            <span
+                                                className="drag-handle"
+                                                draggable="true"
+                                                title="Glisser pour réordonner"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onDragStart={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDragStart(e, lead.id);
+                                                }}
+                                                onDragEnd={handleDragEnd}
+                                            >
+                                                <GripIcon />
+                                            </span>
+                                        </li>
                                         <li>{lead.dateSaisie}</li>
                                         <li>{lead.utilisateur?.nom} {lead.utilisateur?.prenom}</li>
                                         <li>{lead.utilisateur?.telephone}</li>
@@ -524,6 +643,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
 
                                         <li className="status-contact">
                                             <button
+                                                id="status-contact"
                                                 type="button"
                                                 className={`status-contact ${getContacteClass(lead.contacte)}`}
                                                 disabled={!canUpdateStatus || updatingContacteId === lead.id}
@@ -531,6 +651,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                                                     e.stopPropagation();
                                                     handleContacteChange(lead, !lead.contacte);
                                                 }}
+                                         
                                             >
                                                 {lead.contacte ? "Contacté" : "Non contacté"}
                                             </button>
@@ -539,6 +660,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                                         <li className="status-joinable">
                                             <button
                                                 type="button"
+                                                id="status-joinable"
                                                 className={`status-contact ${getJoignableClass(lead.joignable)}`}
                                                 disabled={!canUpdateStatus || !lead.contacte || updatingJoignableId === lead.id}
                                                 title={!lead.contacte ? "Contacter le client d'abord" : ""}
@@ -552,6 +674,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                                         </li>
                                         <li className="status-interesse">
                                             <button
+                                                id="status-interesse"
                                                 type="button"
                                                 className={`status-contact ${getInteresseClass(lead.interesse)}`}
                                                 disabled={!canUpdateStatus || lead.joignable !== true || updatingInteresseId === lead.id}
@@ -640,10 +763,10 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                         </div>
                     )}
 
-                    {filteredData.length > PAGE_SIZE && (
+                    {orderedData.length > PAGE_SIZE && (
                         <div className="data-table-pagination">
                             <span className="pagination-info">
-                                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredData.length)} sur {filteredData.length}
+                                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, orderedData.length)} sur {orderedData.length}
                             </span>
                             <div className="pagination-controls">
                                 <button

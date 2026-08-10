@@ -21,7 +21,7 @@ const DashboardPage = () => {
 
   const [filters, setFilters] = useState(initialFilters);
   const [currentPage, setCurrentPage] = useState(1);
-
+const [isViewingDetails, setIsViewingDetails] = useState(false);
   useEffect(() => {
     setCurrentPage(1);
   }, [requests]);
@@ -48,7 +48,7 @@ const DashboardPage = () => {
     return requests.filter((request) => request.agence === userAgence);
   }, [requests, user]);
 
- 
+
   const filteredRequests = useMemo(
     () => applyFilters(statsRequests, filters),
     [statsRequests, filters]
@@ -99,7 +99,7 @@ const DashboardPage = () => {
           value: statsRequests.length,
           label: "Demandes reçues",
         },
-         {
+        {
           key: "contacted",
           icon: <PhoneCheckIcon />,
           iconBg: "#ECFDF5",
@@ -168,15 +168,18 @@ const DashboardPage = () => {
         data={paginatedRequests}
         onRequestUpdated={onRequestUpdated}
         onRequestDeleted={onRequestDeleted}
+        onViewStateChange={setIsViewingDetails}
       />
 
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalItems={sortedRequests.length}
-        pageSize={PAGE_SIZE}
-        onPageChange={setCurrentPage}
-      />
+      {!isViewingDetails && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={sortedRequests.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </>
   );
 };

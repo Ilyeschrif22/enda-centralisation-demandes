@@ -4,12 +4,15 @@ import DataTableFilters, { initialFilters, applyFilters } from "../../components
 import DataTable from "../../components/data-table/data-table";
 import Pagination from "../../components/pagination/pagination";
 import { useAuth } from "../../context/AuthContext";
+import { useScopedRequests } from "../../hooks/useScopedRequests";
 import "./page-layout.css";
 
 const PAGE_SIZE = 50;
 
 const DemandesPage = () => {
   const { requests, onRequestUpdated, onRequestDeleted, onAddDemande } = useOutletContext();
+  const { user } = useAuth();
+
   const [filters, setFilters] = useState(initialFilters);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDetailView, setIsDetailView] = useState(false);
@@ -18,13 +21,14 @@ const DemandesPage = () => {
     setCurrentPage(1);
   }, [requests]);
 
-  const { user } = useAuth();
   const roles = user?.realm_access?.roles || [];
   const canAddDemande = roles.includes("Call center") || roles.includes("Admin");
 
+  const scopedRequests = useScopedRequests(requests, user);
+
   const filteredRequests = useMemo(
-    () => applyFilters(requests, filters),
-    [requests, filters]
+    () => applyFilters(scopedRequests, filters),
+    [scopedRequests, filters]
   );
 
   const sortedRequests = useMemo(() => {

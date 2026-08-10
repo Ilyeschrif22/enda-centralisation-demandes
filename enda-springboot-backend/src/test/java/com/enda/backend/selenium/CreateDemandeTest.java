@@ -143,6 +143,7 @@ public class CreateDemandeTest {
 
         driver.findElement(By.id("add-demande-submit"))
                 .click();
+        Thread.sleep(8000);
 
 
         Assertions.assertTrue(true);

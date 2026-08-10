@@ -32,7 +32,6 @@ public class DemandeClientService {
     private static final int AGE_MAX = 65;
     private static final String ROLE_DIRECTEUR_AGENCE = "Directeur Agence";
     private static final String ROLE_DIRECTEUR_REGIONAL = "Directeur Régional";
-    private static final String SYSTEM_USERNAME = "system";
     private static final String SYSTEM_NOM = "Système";
 
     private final DemandeClientRepository demandeClientRepository;
@@ -53,8 +52,8 @@ public class DemandeClientService {
     }
 
 
-    public DemandeClient creerDemande(Map<String, Object> fields) {
-        return creerDemande(fields, SYSTEM_USERNAME, SYSTEM_NOM);
+    public DemandeClient creerDemande(Map<String, Object> fields, String systemNom) {
+        return creerDemande(fields, SYSTEM_NOM);
     }
 
     public DemandeClient creerDemande(Map<String, Object> fields, String username, String nomUtilisateur) {
@@ -280,7 +279,7 @@ public class DemandeClientService {
         }
     }
 
-    @Scheduled(fixedRate = 60000)
+    @Scheduled(fixedRate = 1000)
     public void ajouterDemandes() {
 
         List<ProspectFormulaire> prospects = prospectRepository.findAll();
@@ -409,9 +408,8 @@ public class DemandeClientService {
         }
     }
 
-    // Legacy signature kept so existing controller call sites keep compiling.
-    public DemandeClient updateFields(UUID id, Map<String, Object> fields) {
-        return updateFields(id, fields, SYSTEM_USERNAME, SYSTEM_NOM);
+    public DemandeClient updateFields(UUID id, Map<String, Object> fields, String systemNom) {
+        return updateFields(id, fields , SYSTEM_NOM);
     }
 
     public DemandeClient updateFields(UUID id, Map<String, Object> fields, String username, String nomUtilisateur) {
@@ -566,8 +564,6 @@ public class DemandeClientService {
             }
         }
 
-        // Snapshot remaining writable demande fields before the generic BeanWrapper
-        // assignment below, so we can diff and log each one that actually changed.
         BeanWrapper beanWrapper = new BeanWrapperImpl(demande);
         Map<String, Object> snapshotAvant = new java.util.HashMap<>();
         fields.forEach((key, value) -> {
@@ -611,8 +607,6 @@ public class DemandeClientService {
         return saved;
     }
 
-    // Friendly French labels for the generic BeanWrapper-driven fields.
-    // Falls back to the raw key if not mapped, so nothing is silently dropped.
     private String champLabel(String key) {
         return switch (key) {
             case "activite" -> "Activité";
@@ -661,9 +655,8 @@ public class DemandeClientService {
         return demandeClientRepository.save(demande);
     }
 
-    // Legacy signature kept so existing controller call sites keep compiling.
-    public DemandeClient changerStatut(UUID id, StatutDemande nouveauStatut) {
-        return changerStatut(id, nouveauStatut, SYSTEM_USERNAME, SYSTEM_NOM);
+    public DemandeClient changerStatut(UUID id, StatutDemande nouveauStatut, String systemNom) {
+        return changerStatut(id, nouveauStatut , SYSTEM_NOM);
     }
 
     public DemandeClient changerStatut(UUID id, StatutDemande nouveauStatut, String username, String nomUtilisateur) {
@@ -676,9 +669,8 @@ public class DemandeClientService {
         return saved;
     }
 
-    // Legacy signature kept so existing controller call sites keep compiling.
-    public DemandeClient changerJoignable(UUID id, Boolean joignable) {
-        return changerJoignable(id, joignable, SYSTEM_USERNAME, SYSTEM_NOM);
+    public DemandeClient changerJoignable(UUID id, Boolean joignable, String systemNom) {
+        return changerJoignable(id, joignable, SYSTEM_NOM);
     }
 
     public DemandeClient changerJoignable(UUID id, Boolean joignable, String username, String nomUtilisateur) {
@@ -691,9 +683,8 @@ public class DemandeClientService {
         return saved;
     }
 
-    // Legacy signature kept so existing controller call sites keep compiling.
-    public DemandeClient changerInteresse(UUID id, Boolean interesse) {
-        return changerInteresse(id, interesse, SYSTEM_USERNAME, SYSTEM_NOM);
+    public DemandeClient changerInteresse(UUID id, Boolean interesse, String systemNom) {
+        return changerInteresse(id, interesse , SYSTEM_NOM);
     }
 
     public DemandeClient changerInteresse(UUID id, Boolean interesse, String username, String nomUtilisateur) {
@@ -706,9 +697,8 @@ public class DemandeClientService {
         return saved;
     }
 
-    // Legacy signature kept so existing controller call sites keep compiling.
-    public DemandeClient changerContacte(UUID id, Boolean contacte) {
-        return changerContacte(id, contacte, SYSTEM_USERNAME, SYSTEM_NOM);
+    public DemandeClient changerContacte(UUID id, Boolean contacte, String systemNom) {
+        return changerContacte(id, contacte, SYSTEM_NOM);
     }
 
     public DemandeClient changerContacte(UUID id, Boolean contacte, String username, String nomUtilisateur) {
@@ -744,9 +734,8 @@ public class DemandeClientService {
         return demandeClientRepository.findByUtilisateur_Region(region);
     }
 
-    // Legacy signature kept so existing controller call sites keep compiling.
-    public void deleteDemande(UUID id) {
-        deleteDemande(id, SYSTEM_USERNAME, SYSTEM_NOM);
+    public void deleteDemande(UUID id, String systemNom) {
+        deleteDemande(id , SYSTEM_NOM);
     }
 
     public void deleteDemande(UUID id, String username, String nomUtilisateur) {
