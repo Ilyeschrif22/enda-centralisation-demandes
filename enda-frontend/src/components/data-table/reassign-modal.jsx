@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import "./reassign-modal.css";
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const CloseIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

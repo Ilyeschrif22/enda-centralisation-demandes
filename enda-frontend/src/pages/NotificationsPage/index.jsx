@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import PageLoader from "../../components/loader/PageLoader";
 import "./notifications-page.css";
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const formatDate = (isoValue) => {
     if (!isoValue) return "";

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../components/sidebar/sidebar";
 import Navbar from "../components/navbar/navbar";
@@ -6,11 +6,7 @@ import AddDemandeModal from "../components/add-demande/add-demande-modal";
 import PageLoader from "../components/loader/PageLoader";
 import "../App.css";
 
-const API_BASE = "http://127.0.0.1:8089";
-
-// How often to silently re-sync with the backend so changes made by other
-// users in other sessions show up here without a manual refresh.
-const POLL_INTERVAL_MS = 1000;
+import { API_BASE } from "../config";
 
 const mapDemandeToRequest = (demande) => ({
   ...demande,
@@ -31,64 +27,16 @@ const Layout = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const pollInFlight = useRef(false);
-
-  const fetchRequests = useCallback(({ silent = false } = {}) => {
-    if (silent) {
-      if (pollInFlight.current) return Promise.resolve();
-      pollInFlight.current = true;
-    }
-
+  const fetchRequests = useCallback(() => {
     return fetch(`${API_BASE}/demandes`)
       .then((res) => res.json())
       .then((data) => setRequests(data.map(mapDemandeToRequest)))
-      .catch((err) => console.error(err))
-      .finally(() => {
-        if (silent) pollInFlight.current = false;
-      });
+      .catch((err) => console.error(err));
   }, []);
 
   // Initial load
   useEffect(() => {
     fetchRequests().finally(() => setLoading(false));
-  }, [fetchRequests]);
-
-  useEffect(() => {
-    let intervalId = null;
-
-    const startPolling = () => {
-      if (intervalId) return;
-      intervalId = setInterval(() => {
-        fetchRequests({ silent: true });
-      }, POLL_INTERVAL_MS);
-    };
-
-    const stopPolling = () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopPolling();
-      } else {
-        fetchRequests({ silent: true });
-        startPolling();
-      }
-    };
-
-    if (!document.hidden) {
-      startPolling();
-    }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      stopPolling();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
   }, [fetchRequests]);
 
   const handleRequestUpdated = (updatedRequest) => {

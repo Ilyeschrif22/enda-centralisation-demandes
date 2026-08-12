@@ -3,7 +3,7 @@ import RowActionsMenu from "../data-table/row-actions-menu";
 import '../data-table/data-table.css';
 import '../data-table-filters/data-table-filters.css';
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const AgencesTable = ({ data = [], loading, onEdit, onDeleted }) => {
     const [deletingId, setDeletingId] = useState(null);

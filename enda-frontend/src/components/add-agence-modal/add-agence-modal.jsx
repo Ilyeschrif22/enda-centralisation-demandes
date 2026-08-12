@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import geoAgences from "../../../geo-agences.json";
 import './add-agence-modal.css';
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const initialForm = {
     gouvernorat: "",

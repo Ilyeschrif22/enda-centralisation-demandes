@@ -293,7 +293,9 @@ public class DemandeClientService {
                 continue;
             }
 
-            if (demandeClientRepository.existsByUtilisateur_Cin(cin)) {
+            LocalDate dateProspect = prospect.getTimestamp().toLocalDate();
+
+            if (demandeClientRepository.existsByUtilisateur_CinAndDateSaisie(cin, dateProspect)) {
                 continue;
             }
 
@@ -336,12 +338,12 @@ public class DemandeClientService {
             demande.setCapaciteRemboursement(prospect.getCapaciteRemboursement());
             demande.setMontant(prospect.getMontantDemande());
             demande.setAdresseProjet(prospect.getAdresse());
-            demande.setTypeClient("nouveau client");
+            long demandesExistantes = (cin != null) ? demandeClientRepository.countByUtilisateur_Cin(cin) : 0;
+            demande.setTypeClient(demandesExistantes > 0 ? "ancien client" : "nouveau client");
             demande.setStatut(StatutDemande.NON_SAISIE);
             demande.setContacte(Boolean.FALSE);
             demande.setJoignable(null);
             demande.setCanal(prospect.getCanal());
-            long demandesExistantes = (cin != null) ? demandeClientRepository.countByUtilisateur_Cin(cin) : 0;
             demande.setNumeroDemande((int) demandesExistantes + 1);
 
             if (prospect.getTypeDemande() != null && !prospect.getTypeDemande().isBlank()) {

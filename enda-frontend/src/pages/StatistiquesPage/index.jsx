@@ -5,8 +5,6 @@ import {
     Cell,
     BarChart,
     Bar,
-    LineChart,
-    Line,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -19,7 +17,7 @@ import {
 import PageLoader from "../../components/loader/PageLoader";
 import "./statistiques-page.css";
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const STATUT_LABELS = {
     NON_SAISIE: "Non saisie",
@@ -116,11 +114,6 @@ const parseDateSaisie = (dateSaisie) => {
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
-// Stable "YYYY-MM-DD" key/label built from local components, for grouping
-// and sorting by day (used by the evolution chart).
-const formatDateKey = (date) =>
-    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-
 const StatistiquesPage = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -176,6 +169,26 @@ const StatistiquesPage = () => {
         ];
     }, [filteredRequests]);
 
+
+    const monthlyData = useMemo(() => {
+        const counts = {};
+
+        filteredRequests.forEach((request) => {
+            const d = parseDateSaisie(request.dateSaisie);
+            if (!d) return;
+            const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+            counts[key] = (counts[key] || 0) + 1;
+        });
+
+        return Object.entries(counts)
+            .map(([key, value]) => {
+                const [year, month] = key.split("-");
+                const label = `${MOIS_LABELS[Number(month) - 1]}`;
+                return { key, label, value };
+            })
+            .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    }, [filteredRequests]);
+
     const statutData = useMemo(() => {
         const counts = {};
 
@@ -203,7 +216,6 @@ const StatistiquesPage = () => {
             value,
         }));
     }, [filteredRequests]);
-
     const regionData = useMemo(() => {
         const counts = {};
 
@@ -221,7 +233,8 @@ const StatistiquesPage = () => {
                 name,
                 value,
             }))
-            .sort((a, b) => b.value - a.value);
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 8);
     }, [filteredRequests]);
 
     const funnelData = useMemo(() => {
@@ -270,22 +283,6 @@ const StatistiquesPage = () => {
                 fill: FUNNEL_COLORS[4],
             },
         ];
-    }, [filteredRequests]);
-
-    const evolutionData = useMemo(() => {
-        const counts = {};
-
-        filteredRequests.forEach((request) => {
-            const d = parseDateSaisie(request.dateSaisie);
-            if (!d) return;
-            const key = formatDateKey(d);
-            counts[key] = (counts[key] || 0) + 1;
-        });
-
-        return Object.entries(counts)
-            .map(([date, value]) => ({ date, value }))
-            .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
-            .slice(-30);
     }, [filteredRequests]);
 
     const agenceData = useMemo(() => {
@@ -409,22 +406,23 @@ const StatistiquesPage = () => {
             <div className="stats-charts-grid">
 
                 <div className="stats-chart-card stats-chart-card-wide">
-                    <h3>Évolution des demandes reçues (30 derniers jours)</h3>
+                    <h3>Demandes reçues par mois</h3>
 
-                    <ResponsiveContainer width="100%" height={260}>
-                        <LineChart data={evolutionData}>
+                    <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={monthlyData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                            <XAxis
+                                dataKey="label"
+                                tick={{ fontSize: 11 }}
+                                interval={0}
+
+                                textAnchor="end"
+                                height={60}
+                            />
                             <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                             <Tooltip />
-                            <Line
-                                type="monotone"
-                                dataKey="value"
-                                stroke="#DE0065"
-                                strokeWidth={2}
-                                dot={{ r: 3 }}
-                            />
-                        </LineChart>
+                            <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#DE0065" />
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
 
@@ -462,8 +460,8 @@ const StatistiquesPage = () => {
                                         key={entry.name}
                                         fill={
                                             CANAL_COLORS[
-                                                index %
-                                                    CANAL_COLORS.length
+                                            index %
+                                            CANAL_COLORS.length
                                             ]
                                         }
                                     />
@@ -473,7 +471,7 @@ const StatistiquesPage = () => {
                     </ResponsiveContainer>
                 </div>
 
-                
+
 
                 <div className="stats-chart-card">
                     <h3>Tunnel de conversion</h3>
@@ -535,7 +533,7 @@ const StatistiquesPage = () => {
                     </ResponsiveContainer>
                 </div>
 
-            
+
 
                 <div className="stats-chart-card">
                     <h3>Répartition par statut des demandes</h3>
@@ -563,8 +561,8 @@ const StatistiquesPage = () => {
                                         key={entry.name}
                                         fill={
                                             STATUT_COLORS[
-                                                index %
-                                                    STATUT_COLORS.length
+                                            index %
+                                            STATUT_COLORS.length
                                             ]
                                         }
                                     />
@@ -628,42 +626,28 @@ const StatistiquesPage = () => {
                 <div className="stats-chart-card">
                     <h3>Distribution des demandes par région</h3>
 
-                    <ResponsiveContainer
-                        width="100%"
-                        height={320}
-                    >
-                        <PieChart>
-                            <Pie
-                                data={regionData}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={110}
-                                label={({ name, percent }) =>
-                                    `${name} ${(percent * 100).toFixed(
-                                        0
-                                    )}%`
-                                }
-                            >
+                    <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={regionData} layout="vertical" margin={{ left: 24 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                            <YAxis
+                                type="category"
+                                dataKey="name"
+                                tick={{ fontSize: 11 }}
+                                width={110}
+                            />
+                            <Tooltip />
+                            <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                                 {regionData.map((entry, index) => (
                                     <Cell
                                         key={entry.name}
-                                        fill={
-                                            REGION_COLORS[
-                                                index %
-                                                    REGION_COLORS.length
-                                            ]
-                                        }
+                                        fill={REGION_COLORS[index % REGION_COLORS.length]}
                                     />
                                 ))}
-                            </Pie>
-
-                            <Tooltip />
-                        </PieChart>
+                            </Bar>
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
-
 
                 <div className="stats-chart-card">
                     <h3>Intérêt des prospects</h3>
@@ -688,7 +672,7 @@ const StatistiquesPage = () => {
                     </ResponsiveContainer>
                 </div>
 
-              
+
 
             </div>
         </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "../add-demande/add-demande-modal.css";
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const GENRE_OPTIONS = ["Homme", "Femme"];
 const SITUATION_FAMILIALE_OPTIONS = ["Célibataire", "Marié", "Divorcé", "Veuf"];

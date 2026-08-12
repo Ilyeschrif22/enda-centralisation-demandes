@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 
 import './add-demande-modal.css';
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const TYPE_DEMANDE_OPTIONS = [
     { value: "PREMIER_PRET", label: "Demande 1er prêt" },
@@ -298,7 +298,7 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
                             <span className="cin-alert-badge-dot" />
                             Demande verrouillée
                         </span>
-                        <h3 className="alert-lock-message">Cette demande est en cours de modification Réessayez plus tard.</h3>
+                        <h3 className="alert-lock-message">Cette demande est en cours de modification <br/> par un autre utilisateur Réessayez plus tard.</h3>
                     </div>
 
                     <div className="cin-alert-actions">

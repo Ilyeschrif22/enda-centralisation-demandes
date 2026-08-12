@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import './data-table-filters.css';
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const ACTIVITES = ["Agriculture et Elevage", "Artisanat", "Commerce", "Production", "Autres"];
 const CANAUX = ["FACEBOOK", "WHATSAPP", "WEB", "TELEPHONE", "AGENCE"];
@@ -401,7 +401,6 @@ const DataTableFilters = ({ filters, onFilterChange }) => {
                 </div>
 
                
-
                 <div className="filter-field">
                     <label>Canal</label>
                     <select value={filters.canal} onChange={(e) => update("canal", e.target.value)}>
@@ -415,7 +414,7 @@ const DataTableFilters = ({ filters, onFilterChange }) => {
 
             <div className="data-table-filters-row">
                 <div className="filter-field">
-                    <label>Statut (dfla)</label>
+                    <label>Statut (DFLA)</label>
                     <select value={filters.statut} onChange={(e) => update("statut", e.target.value)}>
                         <option value="">Tous</option>
                         {STATUT_OPTIONS.map((option) => (
@@ -455,7 +454,7 @@ const DataTableFilters = ({ filters, onFilterChange }) => {
                 </div>
 
                 <div className="filter-field filter-field-range">
-                    <label>Date de saisie</label>
+                    <label>Date de la demande</label>
                     <div className="filter-range">
                         <DateField
                             value={filters.dateFrom}

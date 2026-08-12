@@ -146,6 +146,13 @@ const GripIcon = () => (
     </svg>
 );
 
+const SearchIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+    </svg>
+);
+
 const buildAuditQuery = (user) => {
     const username = user?.preferred_username || "";
     const nomUtilisateur = `${user?.given_name || ""} ${user?.family_name || ""}`.trim() || username;
@@ -165,12 +172,6 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
     const canUpdateStatus = !isDirecteur;
 
     const auditQuery = buildAuditQuery(user);
-
-    // Resolved once per render: DashboardPage passes onRequestUpdated/onRequestDeleted,
-    // but the two are kept as fallbacks in case an older caller still passes
-    // onLeadUpdated/onLeadDeleted. Every place that mutates a lead — including
-    // AFTER the fetch resolves — must go through these, or the change never
-    // reaches Layout's `requests` state and only "sticks" until a refresh.
     const updateHandler = onRequestUpdated || onLeadUpdated;
     const deleteHandler = onRequestDeleted || onLeadDeleted;
 
@@ -190,14 +191,10 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
     const [regionLoading, setRegionLoading] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: "dateSaisie", direction: "desc" });
 
-    // --- Selection state ---
+    const [searchQuery, setSearchQuery] = useState("");
+
     const [selectedIds, setSelectedIds] = useState(new Set());
     const selectAllRef = useRef(null);
-
-    // --- Manual drag-to-reorder state ---
-    // customOrder is an array of lead ids representing a user-defined order.
-    // It takes precedence over sortConfig once the user drags a row, and is
-    // cleared again as soon as a column header is clicked.
     const [customOrder, setCustomOrder] = useState(null);
     const [draggedRowId, setDraggedRowId] = useState(null);
     const [dragOverRowId, setDragOverRowId] = useState(null);
@@ -222,7 +219,6 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
             .finally(() => setRegionLoading(false));
     }, [isDirecteurRegional, user]);
 
-    // Drop selections for leads that no longer exist (deleted, reassigned out, etc.)
     useEffect(() => {
         setSelectedIds((prev) => {
             if (prev.size === 0) return prev;
@@ -236,6 +232,11 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
             return changed ? next : prev;
         });
     }, [data]);
+
+
+    useEffect(() => {
+        setPage(1);
+    }, [searchQuery]);
 
     const handleSort = (key) => {
         setCustomOrder(null);
@@ -260,6 +261,25 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
             result = result.filter((lead) => lead.agence === userAgence);
         }
 
+        const query = searchQuery.trim().toLowerCase();
+        if (query) {
+            result = result.filter((lead) => {
+                const haystack = [
+                    lead.utilisateur?.nom,
+                    lead.utilisateur?.prenom,
+                    lead.utilisateur?.telephone,
+                    lead.utilisateur?.cin,
+                    lead.agence,
+                    lead.utilisateur?.region,
+                    lead.canal,
+                ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+                return haystack.includes(query);
+            });
+        }
+
         result = [...result].sort((a, b) => {
             const valA = getSortValue(a, sortConfig.key);
             const valB = getSortValue(b, sortConfig.key);
@@ -270,7 +290,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
         });
 
         return result;
-    }, [data, user, isDirecteurRegional, regionData, sortConfig]);
+    }, [data, user, isDirecteurRegional, regionData, sortConfig, searchQuery, roles]);
 
     // Applies the manual drag order on top of the sorted/filtered data, if any.
     // Any lead not present in customOrder (e.g. newly fetched) is appended at the end.
@@ -520,6 +540,26 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                         <div className="data-table-error">{statusError}</div>
                     )}
 
+                    <div className="data-table-search">
+                        <SearchIcon />
+                        <input
+                            type="text"
+                            placeholder="Rechercher ..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                className="data-table-search-clear"
+                                onClick={() => setSearchQuery("")}
+                                aria-label="Effacer la recherche"
+                            >
+                                ×
+                            </button>
+                        )}
+                    </div>
+
                     {selectedIds.size > 0 && (
                         <div className="data-table-selection-bar">
                             <span>{selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}</span>
@@ -540,7 +580,7 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                             /></li>
                             <li className="col-drag" aria-hidden="true"></li>
                             <li className="sortable-header" onClick={() => handleSort("dateSaisie")}>
-                                <span>Date Saisie</span>
+                                <span>Date</span>
                                 <SortIcon direction={getSortDirection("dateSaisie")} />
                             </li>
                             <li className="sortable-header" onClick={() => handleSort("nom")}>
@@ -593,7 +633,9 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
                     {regionLoading ? (
                         <div className="data-table-empty">Chargement...</div>
                     ) : visibleData.length === 0 ? (
-                        <div className="data-table-empty">Aucun résultat pour ces filtres</div>
+                        <div className="data-table-empty">
+                            {searchQuery ? "Aucun résultat pour cette recherche" : "Aucun résultat pour ces filtres"}
+                        </div>
                     ) : (
                         <div className="data-table-rows">
                             {visibleData.map((lead) => (

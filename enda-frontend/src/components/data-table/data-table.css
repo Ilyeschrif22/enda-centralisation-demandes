@@ -447,3 +447,41 @@ cursor: pointer;
     font-size: 12.5px;
     cursor: pointer;
 }
+.data-table-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #E0E2E7;
+    color: #9CA3AF;
+    background: #fff;
+}
+
+.data-table-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    color: #1F2937;
+    background: transparent;
+}
+
+.data-table-search input::placeholder {
+    color: #9CA3AF;
+}
+
+.data-table-search-clear {
+    background: none;
+    border: none;
+    font-size: 16px;
+    line-height: 1;
+    color: #9CA3AF;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.data-table-search-clear:hover {
+    background: #F3F4F6;
+    color: #4B5563;
+}

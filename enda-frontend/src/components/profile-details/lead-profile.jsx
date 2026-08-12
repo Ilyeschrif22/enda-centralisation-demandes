@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import './lead-profile-view.css';
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const booleanLabel = (value) => {
     if (value === true) return "Oui";

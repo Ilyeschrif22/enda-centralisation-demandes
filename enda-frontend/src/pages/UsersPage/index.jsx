@@ -5,7 +5,7 @@ import "../../components/data-table/data-table.css";
 import "./users-page.css";
 import "./page-layout.css";
 
-const API_BASE = "http://127.0.0.1:8089";
+import { API_BASE } from "../../config";
 
 const getInitials = (u) => {
     const first = u.firstName?.[0] || u.username?.[0] || "";
