@@ -174,7 +174,7 @@ enda-fast-api-backend/
 - **Background Tasks & Scheduler** : `APScheduler` gère l'exécution périodique des tâches sans bloquer l'Event Loop de FastAPI.
 - **Connexion Spring Boot** : FastAPI communique également avec la brique Spring Boot pour remonter des analyses ou synchroniser des données.
 
-
+to run keycloak localy : ```bin\kc.bat start-dev```
 
 ### 4. `enda-tamweel-keycloak-starter` — Approach: Custom Distribution & IAM Starter
 
