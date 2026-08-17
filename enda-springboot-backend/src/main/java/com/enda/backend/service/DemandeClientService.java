@@ -12,6 +12,7 @@ import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
@@ -27,7 +28,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DemandeClientService {
 
-    private static final long LOCK_TIMEOUT_SECONDS = 300;
     private static final int AGE_MIN = 18;
     private static final int AGE_MAX = 65;
     private static final String ROLE_DIRECTEUR_AGENCE = "Directeur Agence";
@@ -51,11 +51,11 @@ public class DemandeClientService {
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
     }
 
-
     public DemandeClient creerDemande(Map<String, Object> fields, String systemNom) {
         return creerDemande(fields, SYSTEM_NOM);
     }
 
+    @Transactional
     public DemandeClient creerDemande(Map<String, Object> fields, String username, String nomUtilisateur) {
 
         String cin = normalizeCin((String) fields.get("cin"));
@@ -63,7 +63,6 @@ public class DemandeClientService {
         List<DemandeClient> demandesExistantesList = (cin != null)
                 ? new java.util.ArrayList<>(demandeClientRepository.findByUtilisateur_CinOrderByNumeroDemande(cin))
                 : new java.util.ArrayList<>();
-
 
         if (!demandesExistantesList.isEmpty()) {
             DemandeClient derniereDemande = demandesExistantesList.get(demandesExistantesList.size() - 1);
@@ -288,7 +287,6 @@ public class DemandeClientService {
 
             String cin = normalizeCin(prospect.getCin());
 
-
             if (cin == null || cin.isBlank()) {
                 continue;
             }
@@ -329,7 +327,6 @@ public class DemandeClientService {
             DemandeClient demande = new DemandeClient();
             demande.setUtilisateur(utilisateur);
             demande.setDateSaisie(prospect.getTimestamp().toLocalDate());
-
 
             demande.setStatutProjet(prospect.getProjet());
             demande.setActivite(prospect.getSecteurActivite());
@@ -411,9 +408,22 @@ public class DemandeClientService {
     }
 
     public DemandeClient updateFields(UUID id, Map<String, Object> fields, String systemNom) {
-        return updateFields(id, fields , SYSTEM_NOM);
+        return updateFields(id, fields, SYSTEM_NOM);
     }
 
+    /**
+     * Applies a partial update to a DemandeClient (and its linked Utilisateur).
+     *
+     * Notes on behavior:
+     *  - "statut" is deliberately never applied here — status changes must go through
+     *    changerStatut(...) so the transition is explicit and audited consistently.
+     *  - "montantDemande" is treated as an alias for "montant"; if a caller sends
+     *    montantDemande it will be applied to the same underlying field as "montant".
+     *    (Mirrors the alias handling already used in creerDemande.)
+     *  - Any key that doesn't correspond to a writable DemandeClient property is now
+     *    logged (previously silently ignored), so bad/unmapped payload keys are visible.
+     */
+    @Transactional
     public DemandeClient updateFields(UUID id, Map<String, Object> fields, String username, String nomUtilisateur) {
 
         DemandeClient demande = demandeClientRepository.findById(id)
@@ -516,8 +526,19 @@ public class DemandeClientService {
             auditService.logChampSiModifie(id, username, nomUtilisateur, "Code postal", oldValue, newValue);
         }
 
+        // If gouvernorat/delegation changed and no explicit agence override is present in this
+        // payload, recompute region from the new gouvernorat/delegation so it doesn't go stale.
+        if (gouvernoratOuDelegationChange && !fields.containsKey("agence")) {
+            String regionFromGD = getRegionByGouvernoratAndDelegation(
+                    utilisateur.getGouvernorat(), utilisateur.getDelegation());
+            if (regionFromGD != null) {
+                utilisateur.setRegion(regionFromGD);
+            }
+        }
+
         utilisateurRepository.save(utilisateur);
 
+        // statut is deliberately excluded from generic field updates — must go through changerStatut(...)
         fields.remove("statut");
 
         if (fields.containsKey("typeDemande") && fields.get("typeDemande") != null) {
@@ -540,6 +561,15 @@ public class DemandeClientService {
             demande.setCapaciteRemboursement(newValue);
             auditService.logChampSiModifie(id, username, nomUtilisateur, "Capacité de remboursement", oldValue, newValue);
             fields.remove("capaciteRemboursement");
+        }
+
+        // --- Alias handling: same logical field can arrive under different keys depending on
+        // the caller (mirrors the aliasing already done in creerDemande). Without this, a caller
+        // sending "montantDemande" on update would silently fail to update anything, since
+        // DemandeClient has no "montantDemande" property for BeanWrapper to write to. ---
+        if (fields.containsKey("montantDemande")) {
+            Object v = fields.remove("montantDemande");
+            fields.put("montant", v);
         }
 
         boolean agenceChanged = false;
@@ -568,9 +598,15 @@ public class DemandeClientService {
 
         BeanWrapper beanWrapper = new BeanWrapperImpl(demande);
         Map<String, Object> snapshotAvant = new java.util.HashMap<>();
+
         fields.forEach((key, value) -> {
             if (beanWrapper.isWritableProperty(key)) {
                 snapshotAvant.put(key, beanWrapper.getPropertyValue(key));
+            } else {
+                // Previously silent — now logged so unmapped/misspelled payload keys are visible
+                // instead of quietly doing nothing.
+                System.err.println("updateFields: clé ignorée (propriété non écrivable sur DemandeClient) pour la demande "
+                        + id + ": " + key);
             }
         });
 
@@ -627,14 +663,31 @@ public class DemandeClientService {
         };
     }
 
+    public void updateEligibilityData(
+            String cin,
+            Double eligibilityScore,
+            Boolean ppe,
+            Boolean repertorie) {
+
+        List<DemandeClient> demandes =
+                demandeClientRepository.findByUtilisateur_CinOrderByNumeroDemande(cin);
+
+        demandes.forEach(demande -> {
+            demande.setEligibilityScore(eligibilityScore);
+            demande.setPpe(ppe);
+            demande.setRepertorie(repertorie);
+        });
+
+        demandeClientRepository.saveAll(demandes);
+    }
+
     public DemandeClient acquireLock(UUID id, String username) {
         DemandeClient demande = demandeClientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
 
         boolean isLockedByOther = demande.getVerrouillePar() != null
                 && !demande.getVerrouillePar().equals(username)
-                && demande.getVerrouilleDepuis() != null
-                && Duration.between(demande.getVerrouilleDepuis(), Instant.now()).getSeconds() < LOCK_TIMEOUT_SECONDS;
+                && demande.getVerrouilleDepuis() != null;
 
         if (isLockedByOther) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, demande.getVerrouillePar());
@@ -658,7 +711,7 @@ public class DemandeClientService {
     }
 
     public DemandeClient changerStatut(UUID id, StatutDemande nouveauStatut, String systemNom) {
-        return changerStatut(id, nouveauStatut , SYSTEM_NOM);
+        return changerStatut(id, nouveauStatut, SYSTEM_NOM);
     }
 
     public DemandeClient changerStatut(UUID id, StatutDemande nouveauStatut, String username, String nomUtilisateur) {
@@ -686,7 +739,7 @@ public class DemandeClientService {
     }
 
     public DemandeClient changerInteresse(UUID id, Boolean interesse, String systemNom) {
-        return changerInteresse(id, interesse , SYSTEM_NOM);
+        return changerInteresse(id, interesse, SYSTEM_NOM);
     }
 
     public DemandeClient changerInteresse(UUID id, Boolean interesse, String username, String nomUtilisateur) {
@@ -737,9 +790,10 @@ public class DemandeClientService {
     }
 
     public void deleteDemande(UUID id, String systemNom) {
-        deleteDemande(id , SYSTEM_NOM);
+        deleteDemande(id, SYSTEM_NOM);
     }
 
+    @Transactional
     public void deleteDemande(UUID id, String username, String nomUtilisateur) {
         DemandeClient demande = demandeClientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));

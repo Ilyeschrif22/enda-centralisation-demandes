@@ -4,8 +4,10 @@ import com.enda.backend.entity.Commentaire;
 import com.enda.backend.entity.DemandeClient;
 import com.enda.backend.repository.CommentaireRepository;
 import com.enda.backend.repository.DemandeClientRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -17,11 +19,19 @@ public class CommentaireService {
 
     private final CommentaireRepository commentaireRepository;
     private final DemandeClientRepository demandeClientRepository;
+    private final EntityManager entityManager;
 
+    @Transactional(readOnly = true)
     public List<Commentaire> findByDemande(UUID demandeId) {
-        return commentaireRepository.findByDemande_IdOrderByDateCreationAsc(demandeId);
+        List<Commentaire> commentaires =
+                commentaireRepository.findByDemande_IdOrderByDateCreationAsc(demandeId);
+
+        commentaires.forEach(c -> c.setDemande(null));
+
+        return commentaires;
     }
 
+    @Transactional
     public Commentaire ajouterCommentaire(UUID demandeId, String auteurUsername, String auteurNom, String texte) {
         DemandeClient demande = demandeClientRepository.findById(demandeId)
                 .orElseThrow(() -> new RuntimeException("Demande introuvable"));
@@ -33,6 +43,12 @@ public class CommentaireService {
         commentaire.setTexte(texte);
         commentaire.setDateCreation(Instant.now());
 
-        return commentaireRepository.save(commentaire);
+        Commentaire saved = commentaireRepository.saveAndFlush(commentaire);
+
+
+        entityManager.detach(saved);
+        saved.setDemande(null);
+
+        return saved;
     }
 }

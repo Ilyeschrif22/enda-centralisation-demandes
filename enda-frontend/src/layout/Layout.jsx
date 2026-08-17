@@ -26,15 +26,15 @@ const Layout = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
   const fetchRequests = useCallback(() => {
     return fetch(`${API_BASE}/demandes`)
       .then((res) => res.json())
-      .then((data) => setRequests(data.map(mapDemandeToRequest)))
+      .then((data) => {setRequests(data.map(mapDemandeToRequest)); 
+      })
       .catch((err) => console.error(err));
   }, []);
+  
 
-  // Initial load
   useEffect(() => {
     fetchRequests().finally(() => setLoading(false));
   }, [fetchRequests]);
@@ -62,15 +62,9 @@ const Layout = () => {
   };
 
   const handleDemandeCreated = (newDemande) => {
-    // Optimistic insert so the modal can close immediately and the table
-    // reflects the new row without waiting on a round trip.
     const flattened = mapDemandeToRequest(newDemande);
     setRequests((prev) => [flattened, ...prev.filter((r) => r.id !== flattened.id)]);
     setIsAddModalOpen(false);
-
-    // The backend may silently replace an existing same-CIN/same-day demande
-    // (delete + recreate) when creating this one. Refetch the authoritative
-    // list right after so the table is guaranteed to match the server exactly.
     setRefreshing(true);
     fetchRequests().finally(() => setRefreshing(false));
   };

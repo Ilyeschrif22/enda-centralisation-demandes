@@ -22,9 +22,18 @@ const DashboardPage = () => {
   const [filters, setFilters] = useState(initialFilters);
   const [currentPage, setCurrentPage] = useState(1);
 const [isViewingDetails, setIsViewingDetails] = useState(false);
+
+  // Reset to page 1 only when the actual set of items changes (add/remove),
+  // not on every field update (e.g. a status change) which would otherwise
+  // cause an annoying pagination jump on each row edit.
+  const requestIdSignature = useMemo(
+    () => requests.map((r) => r.id).join(","),
+    [requests]
+  );
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [requests]);
+  }, [requestIdSignature]);
 
   const statsRequests = useMemo(() => {
     const roles = user?.realm_access?.roles || [];

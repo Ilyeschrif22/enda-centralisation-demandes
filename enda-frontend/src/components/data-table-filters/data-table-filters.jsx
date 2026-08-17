@@ -5,7 +5,7 @@ import './data-table-filters.css';
 import { API_BASE } from "../../config";
 
 const ACTIVITES = ["Agriculture et Elevage", "Artisanat", "Commerce", "Production", "Autres"];
-const CANAUX = ["FACEBOOK", "WHATSAPP", "WEB", "TELEPHONE", "AGENCE"];
+const CANAUX = ["FACEBOOK", "WHATSAPP", "WEB", "CALL_CENTER", "AGENCE"];
 const CANAL_LABELS = {
     FACEBOOK: "Facebook",
     WHATSAPP: "WhatsApp",
@@ -147,7 +147,7 @@ export const initialFilters = {
 export const applyFilters = (data, filters) => {
     return data.filter((lead) => {
         if (filters.cin && !(lead.cin ?? "").toLowerCase().includes(filters.cin.toLowerCase())) return false;
-        if (filters.telephone && !(lead.telephone ?? "").includes(filters.telephone)) return false;
+        if (filters.canal && lead.canal !== filters.canal) return false; 
         if (filters.statutProjet && lead.statutProjet !== filters.statutProjet) return false;
         if (filters.activite && lead.activite !== filters.activite) return false;
 

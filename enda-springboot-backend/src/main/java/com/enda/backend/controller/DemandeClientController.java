@@ -21,9 +21,7 @@ public class DemandeClientController {
     private static final String SYSTEM_USERNAME = "system";
     private static final String SYSTEM_NOM = "Système";
 
-    // Falls back to "system"/"Système" only when the frontend didn't send
-    // audit identity (e.g. an unauthenticated/legacy caller), so every
-    // interactive action from the UI is attributable to a real user.
+
     private String resolveUsername(String username) {
         return (username != null && !username.isBlank()) ? username : SYSTEM_USERNAME;
     }
@@ -159,5 +157,27 @@ public class DemandeClientController {
     @DeleteMapping("/{id}/lock")
     public DemandeClient releaseLock(@PathVariable UUID id, @RequestParam String username) {
         return demandeClientService.releaseLock(id, username);
+    }
+
+    @PatchMapping("/{cin}/eligibility")
+    public ResponseEntity<Void> updateEligibilityData(
+            @PathVariable String cin,
+            @RequestBody Map<String, Object> body) {
+
+        Double eligibilityScore = body.get("eligibilityScore") != null
+                ? ((Number) body.get("eligibilityScore")).doubleValue()
+                : null;
+
+        Boolean ppe = (Boolean) body.get("ppe");
+        Boolean repertorie = (Boolean) body.get("repertorie");
+
+        demandeClientService.updateEligibilityData(
+                cin,
+                eligibilityScore,
+                ppe,
+                repertorie
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

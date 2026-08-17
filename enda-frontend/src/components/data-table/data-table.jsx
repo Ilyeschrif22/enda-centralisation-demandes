@@ -354,7 +354,6 @@ const DataTable = ({ data = [], onLeadUpdated, onLeadDeleted, onRequestUpdated, 
 
     const clearSelection = () => setSelectedIds(new Set());
 
-    // --- Drag-to-reorder handlers ---
     const handleDragStart = (e, id) => {
         setDraggedRowId(id);
         e.dataTransfer.effectAllowed = "move";

@@ -17,9 +17,17 @@ const DemandesPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isDetailView, setIsDetailView] = useState(false);
 
+  // Reset to page 1 only when the actual set of items changes (add/remove),
+  // not on every field update (e.g. a status change) which would otherwise
+  // cause an annoying pagination jump on each row edit.
+  const requestIdSignature = useMemo(
+    () => requests.map((r) => r.id).join(","),
+    [requests]
+  );
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [requests]);
+  }, [requestIdSignature]);
 
   const roles = user?.realm_access?.roles || [];
   const canAddDemande = roles.includes("Call center") || roles.includes("Admin");

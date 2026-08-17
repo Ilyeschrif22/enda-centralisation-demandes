@@ -284,7 +284,6 @@ const AddDemandeModal = ({ open, onClose, onCreated, lead = null, onUpdated }) =
         onClose();
     };
 
-    // Locked demande: show ONLY the alert, not the full modal behind it.
     if (lockedBy) {
         return (
             <div className="cin-alert-overlay" onClick={handleClose}>

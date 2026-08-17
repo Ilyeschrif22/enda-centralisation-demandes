@@ -45,6 +45,14 @@ public class DemandeClient {
     private Instant verrouilleDepuis;
     private Boolean interesse;
 
+    private Double eligibilityScore;
+
+    @Column(name = "ppe")
+    private Boolean ppe;
+
+    @Column(name = "repertorie")
+    private Boolean repertorie;
+
 
     @Enumerated(EnumType.STRING)
     private Canal canal;
