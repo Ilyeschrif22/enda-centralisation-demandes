@@ -263,7 +263,7 @@ docker compose down -v
 ### Champs auto-générés (ne pas envoyer)
 `id`, `dateSaisie`, `numeroDemande`, `typeClient`, `statut`, `contacte`
 
-URL DE TEST :  https://hans-gave-talked-favourite.trycloudflare.com/demandes
+URL DE TEST :   https://imagine-cup-earthquake-getting.trycloudflare.com/demandes
 
 <img width="1374" height="713" alt="image" src="https://github.com/user-attachments/assets/d648c7f3-e861-4ad0-9f07-0cb24bc23ad0" />
 
